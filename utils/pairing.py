@@ -1,7 +1,7 @@
 # utils/pairing.py - Core pairing logic
 
 import pandas as pd
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 from dataclasses import dataclass
 
 # Constants
@@ -37,7 +37,7 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
             club=row["Club"],
             trainer=row["Trainer"],
             record=int(row["Record"]),
-            weight_class=row["Weight_Class"],
+            weight_class=row["Weight Class"],
             dob=str(row.get("DOB")) if pd.notna(row.get("DOB")) else None,
         )
         fighters.append(fighter)

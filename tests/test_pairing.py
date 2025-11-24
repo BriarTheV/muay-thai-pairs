@@ -83,7 +83,7 @@ def test_weight_tolerance():
             "Name": ["A", "B"],
             "Gender": ["M", "M"],
             "Age": [20, 20],
-            "Weight": [70.0, 70.6],  # Within 0.5kg tolerance
+            "Weight": [70.0, 70.4],  # Within 0.5kg tolerance
             "Club": ["C1", "C2"],
             "Trainer": ["T1", "T2"],
             "Record": [0, 0],

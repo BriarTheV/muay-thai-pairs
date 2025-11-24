@@ -249,7 +249,8 @@ with st.sidebar:
     st.divider()
     user = get_current_user()
     if user:
-        st.write(f"👤 {user.email}")
+        email = getattr(user, "email", "Unknown")
+        st.write("User: {}".format(email))
         if st.button("Logout"):
             logout()
 
@@ -296,7 +297,7 @@ with tab1:
             df, error_msg = validate_excel_file(uploaded_file)
 
             if error_msg:
-                st.error(f"Error loading data: {error_msg}")
+                st.error("Error loading data: {}".format(error_msg))
             else:
                 st.success(t("data_loaded"))
 
@@ -310,31 +311,40 @@ with tab1:
                 st.subheader(t("header_matches"))  # Reuse for fighter data
                 st.dataframe(df)
 
-                st.write(f"{t('total_fighters')}: {len(df)}")
-                st.write(f"{t('genders')}: {df['Gender'].value_counts().to_dict()}")
-                st.write(f"{t('clubs')}: {df['Club'].nunique()} unique clubs")
+                st.write("{}: {}".format(t("total_fighters"), len(df)))
+                st.write(
+                    "{}: {}".format(t("genders"), df["Gender"].value_counts().to_dict())
+                )
+                st.write("{}: {} unique clubs".format(t("clubs"), df["Club"].nunique()))
 
     elif ingestion_mode == "Google Sheets":
         st.subheader(t("gsheets_import"))
 
         if GSheetsConnection is None:
             st.error(t("gsheets_error"))
-            return
+            st.info(
+                "Please install streamlit-gsheets-connection to use Google Sheets import."
+            )
+        else:
+            # Sheet URL input
+            sheet_url = st.text_input(
+                "Google Sheets URL",
+                placeholder="https://docs.google.com/spreadsheets/d/.../edit",
+                help="Paste the full URL of your Google Sheet",
+            )
 
-        # Sheet URL input
-        sheet_url = st.text_input(
-            "Google Sheets URL",
-            placeholder="https://docs.google.com/spreadsheets/d/.../edit",
-            help="Paste the full URL of your Google Sheet",
-        )
+            if sheet_url:
+                df_raw = pd.DataFrame()
+                try:
+                    # Create connection
+                    conn = st.connection("gsheets", type=GSheetsConnection)
 
-        if sheet_url:
-            try:
-                # Create connection
-                conn = st.connection("gsheets", type=GSheetsConnection)
+                    # Read sheet data
+                    df_raw = conn.read(spreadsheet=sheet_url)
 
-                # Read sheet data
-                df_raw = conn.read(spreadsheet=sheet_url)
+                except Exception as e:
+                    st.error(f"Error reading sheet: {str(e)}")
+                    df_raw = pd.DataFrame()
 
                 if not df_raw.empty:
                     st.success(t("sheet_loaded"))
@@ -437,7 +447,7 @@ with tab1:
                         df, error_msg = validate_fighter_dataframe(df)
 
                         if error_msg:
-                            st.error(f"Validation error: {error_msg}")
+                            st.error("Validation error: {}".format(error_msg))
                         else:
                             # Add weight class
                             df["Weight Class"] = df["Weight"].apply(get_weight_class)
@@ -451,8 +461,6 @@ with tab1:
                 else:
                     st.warning(t("no_sheet_data"))
 
-            except Exception as e:
-                st.error(f"{t('gsheets_conn_error')}: {str(e)}")
                 st.info(t("gsheets_help"))
 
     elif ingestion_mode == "Database Tournament":
@@ -557,28 +565,6 @@ with tab1:
             st.error(f"{t('db_error')}: {str(e)}")
             st.info(t("supabase_config"))
 
-    if uploaded_file is not None:
-        # Validate and load data
-        df, error_msg = validate_excel_file(uploaded_file)
-
-        if error_msg:
-            st.error(f"Error loading data: {error_msg}")
-        else:
-            st.success(t("data_loaded"))
-
-            # Add weight class
-            df["Weight Class"] = df["Weight"].apply(get_weight_class)
-
-            # Store in session state
-            st.session_state["fighters_df"] = df
-
-            # Display data
-            st.subheader(t("header_matches"))  # Reuse for fighter data
-            st.dataframe(df)
-
-            st.write(f"{t('total_fighters')}: {len(df)}")
-            st.write(f"{t('genders')}: {df['Gender'].value_counts().to_dict()}")
-            st.write(f"{t('clubs')}: {df['Club'].nunique()} unique clubs")
 
 with tab2:
     st.header(t("header_generate"))
