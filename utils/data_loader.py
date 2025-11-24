@@ -23,7 +23,26 @@ def validate_excel_file(uploaded_file) -> Tuple[Optional[pd.DataFrame], str]:
     try:
         # Read Excel file
         df = pd.read_excel(uploaded_file, engine="openpyxl")
+        return validate_fighter_dataframe(df)
 
+    except Exception as e:
+        return None, f"Error reading Excel file: {str(e)}"
+
+
+def validate_fighter_dataframe(df: pd.DataFrame) -> Tuple[Optional[pd.DataFrame], str]:
+    """
+    Validate fighter data in DataFrame format.
+
+    Args:
+        df: DataFrame with fighter data
+
+    Returns:
+        Tuple of (DataFrame or None, error message)
+    """
+    if df is None or df.empty:
+        return None, "No data provided"
+
+    try:
         # Check for required columns
         missing_cols = [col for col in EXPECTED_COLUMNS if col not in df.columns]
         if missing_cols:
@@ -78,7 +97,7 @@ def validate_excel_file(uploaded_file) -> Tuple[Optional[pd.DataFrame], str]:
         return df, ""
 
     except Exception as e:
-        return None, f"Error reading Excel file: {str(e)}"
+        return None, f"Error validating data: {str(e)}"
 
 
 def get_weight_class(weight: float) -> str:

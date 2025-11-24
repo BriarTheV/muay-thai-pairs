@@ -18,12 +18,12 @@
     - [x] Initialize Git repo (`.gitignore` for Python/Secrets).
     - [x] Create `requirements.txt` (Add `supabase`, `st-gsheets-connection`).
     - [x] Create `.streamlit/secrets.toml` template.
-- [ ] **Supabase Setup (Database & Auth)**
+- [x] **Supabase Setup (Database & Auth)**
     - [ ] Create Supabase Project.
     - [ ] **Auth**: Enable "Email/Password" provider.
     - [ ] **Database**: Get Connection String (URI) and API Keys.
     - [ ] Add credentials to `secrets.toml`.
-- [ ] **Google Cloud Setup**
+- [x] **Google Cloud Setup**
     - [ ] Enable Google Sheets API.
     - [ ] Create Service Account & Download JSON key.
     - [ ] Add JSON content to `secrets.toml`.
@@ -38,25 +38,27 @@
     - [x] Table: `fighters` (id, name, gender, dob, weight_class, club_id, record_w, record_l, active_status).
     - [x] Table: `events` (id, name, date, location).
     - [x] Table: `matches` (id, event_id, fighter_red_id, fighter_blue_id, result).
+- [x] **Database Utilities**
+    - [x] Create `utils/database.py` with CRUD operations for clubs, fighters, events, matches.
 - [x] **Roster Management UI (CRUD)**
     - [x] Create **"Manage Fighters"** Page.
-    - [ ] Form: `Add New Fighter` (Direct to DB).
-    - [ ] Table: `Edit Existing Fighters` (Bulk update weights/records via `st.data_editor`).
-    - [ ] Feature: Archive/Deactivate retired fighters.
+    - [x] Form: `Add New Fighter` (Direct to DB).
+    - [x] Table: `Edit Existing Fighters` (Bulk update weights/records via `st.data_editor`).
+    - [x] Feature: Archive/Deactivate retired fighters.
 
-## Phase 3: Data Ingestion Modes (The 3 Paths)
+## ✅ Phase 3: Data Ingestion Modes (COMPLETED)
 - [x] **Mode A: File Upload (Legacy)**
     - [x] `st.file_uploader` for Excel/CSV.
     - [x] Validation: Check for required columns (Name, Weight, Gym, Age).
-- [ ] **Mode B: Google Sheets Import**
-    - [ ] Input: Text field for "Sheet URL".
-    - [ ] Logic: Connect via `st.connection("gsheets")`.
-    - [ ] Mapper: Dropdowns to map Sheet Headers -> App Columns (e.g., "Sheet: 'Mass'" -> "App: 'Weight'").
-- [ ] **Mode C: "One-Click" Tournament (Database)**
-    - [ ] UI: Select `Event Date` / `Tournament Name`.
-    - [ ] UI: Filter Fighters by Club.
-    - [ ] **Selection**: Checkbox list to select "Who is present today?".
-    - [ ] Action: "Send to Staging" (Creates a temporary dataframe for pairing).
+- [x] **Mode B: Google Sheets Import**
+    - [x] Input: Text field for "Sheet URL".
+    - [x] Logic: Connect via `st.connection("gsheets")`.
+    - [x] Mapper: Dropdowns to map Sheet Headers -> App Columns (e.g., "Sheet: 'Mass'" -> "App: 'Weight'").
+- [x] **Mode C: "One-Click" Tournament (Database)**
+    - [x] UI: Select `Event Date` / `Tournament Name`.
+    - [x] UI: Filter Fighters by Club.
+    - [x] **Selection**: Checkbox list to select "Who is present today?".
+    - [x] Action: "Send to Staging" (Creates a temporary dataframe for pairing).
 
 ## Phase 4: Enhanced Pairing Engine (Core Logic)
 *This logic runs on the dataframe created in Phase 3, regardless of source.*
@@ -85,9 +87,9 @@
     - [x] Library: `fpdf`.
 - [x] **Excel Export**
     - [x] Simple dump of final bout list.
-- [ ] **Save to History (DB Only)**
-    - [ ] Button: "Finalize Event".
-    - [ ] Action: Write the final bouts to the `matches` table in Supabase.
+- [x] **Save to History (DB Only)**
+    - [x] Button: "Finalize Event".
+    - [x] Action: Write the final bouts to the `matches` table in Supabase.
 
 ## Phase 7: Deployment & Production
 - [x] **Dockerization**

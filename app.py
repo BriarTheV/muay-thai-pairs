@@ -2,10 +2,20 @@
 
 import streamlit as st
 import pandas as pd
-from utils.data_loader import validate_excel_file, get_weight_class
+from utils.data_loader import (
+    validate_excel_file,
+    validate_fighter_dataframe,
+    get_weight_class,
+)
 from utils.pairing import pair_fighters
 from utils.pdf_gen import generate_excel_matches, generate_pdf_bout_sheets
 from utils.auth import require_auth, logout_user
+
+# Import GSheets connection (optional, for Google Sheets mode)
+try:
+    from streamlit_gsheets import GSheetsConnection
+except ImportError:
+    GSheetsConnection = None
 from utils.auth import require_auth, logout, get_current_user
 
 # Translation dictionaries
@@ -165,10 +175,270 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
 with tab1:
     st.header(t("header_data"))
 
-    # File uploader
-    uploaded_file = st.file_uploader(
-        t("upload_help"), type=["xlsx"], help=t("upload_help")
+    # Data ingestion mode selection
+    ingestion_mode = st.radio(
+        "Select Data Source:",
+        ["File Upload", "Google Sheets", "Database Tournament"],
+        index=0,
+        help="Choose how to load fighter data",
     )
+
+    if ingestion_mode == "File Upload":
+        # File uploader
+        uploaded_file = st.file_uploader(
+            t("upload_help"), type=["xlsx"], help=t("upload_help")
+        )
+
+        if uploaded_file is not None:
+            # Validate and load data
+            df, error_msg = validate_excel_file(uploaded_file)
+
+            if error_msg:
+                st.error(f"Error loading data: {error_msg}")
+            else:
+                st.success(t("data_loaded"))
+
+                # Add weight class
+                df["Weight Class"] = df["Weight"].apply(get_weight_class)
+
+                # Store in session state
+                st.session_state["fighters_df"] = df
+
+                # Display data
+                st.subheader(t("header_matches"))  # Reuse for fighter data
+                st.dataframe(df)
+
+                st.write(f"{t('total_fighters')}: {len(df)}")
+                st.write(f"{t('genders')}: {df['Gender'].value_counts().to_dict()}")
+                st.write(f"{t('clubs')}: {df['Club'].nunique()} unique clubs")
+
+    elif ingestion_mode == "Google Sheets":
+        st.subheader("Google Sheets Import")
+
+        if GSheetsConnection is None:
+            st.error(
+                "Google Sheets connection not available. Please install streamlit-gsheets-connection."
+            )
+            return
+
+        # Sheet URL input
+        sheet_url = st.text_input(
+            "Google Sheets URL",
+            placeholder="https://docs.google.com/spreadsheets/d/.../edit",
+            help="Paste the full URL of your Google Sheet",
+        )
+
+        if sheet_url:
+            try:
+                # Create connection
+                conn = st.connection("gsheets", type=GSheetsConnection)
+
+                # Read sheet data
+                df_raw = conn.read(spreadsheet=sheet_url)
+
+                if not df_raw.empty:
+                    st.success("Sheet data loaded successfully!")
+
+                    # Show raw data preview
+                    st.subheader("Raw Sheet Data Preview")
+                    st.dataframe(df_raw.head(10))
+
+                    # Column mapping
+                    st.subheader("Column Mapping")
+                    st.write("Map sheet columns to required fields:")
+
+                    available_columns = list(df_raw.columns)
+
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        name_col = st.selectbox(
+                            "Name Column",
+                            available_columns,
+                            index=0 if "name" in available_columns[0].lower() else None,
+                        )
+                    with col2:
+                        gender_col = st.selectbox(
+                            "Gender Column",
+                            available_columns,
+                            index=1 if len(available_columns) > 1 else None,
+                        )
+                    with col3:
+                        weight_col = st.selectbox(
+                            "Weight Column",
+                            available_columns,
+                            index=2 if len(available_columns) > 2 else None,
+                        )
+                    with col4:
+                        club_col = st.selectbox(
+                            "Club Column",
+                            available_columns,
+                            index=3 if len(available_columns) > 3 else None,
+                        )
+
+                    # Additional optional columns
+                    col5, col6, col7 = st.columns(3)
+                    with col5:
+                        age_col = st.selectbox(
+                            "Age Column (optional)", ["None"] + available_columns
+                        )
+                    with col6:
+                        trainer_col = st.selectbox(
+                            "Trainer Column (optional)", ["None"] + available_columns
+                        )
+                    with col7:
+                        record_col = st.selectbox(
+                            "Record Column (optional)", ["None"] + available_columns
+                        )
+
+                    if st.button("Import & Validate Data"):
+                        # Map columns
+                        column_mapping = {
+                            "Name": name_col,
+                            "Gender": gender_col,
+                            "Weight": weight_col,
+                            "Club": club_col,
+                        }
+
+                        if age_col != "None":
+                            column_mapping["Age"] = age_col
+                        if trainer_col != "None":
+                            column_mapping["Trainer"] = trainer_col
+                        if record_col != "None":
+                            column_mapping["Record"] = record_col
+
+                        # Create mapped dataframe
+                        df = df_raw.rename(
+                            columns={v: k for k, v in column_mapping.items()}
+                        )
+
+                        # Keep only mapped columns
+                        df = df[list(column_mapping.keys())]
+
+                        # Validate and clean
+                        df, error_msg = validate_fighter_dataframe(df)
+
+                        if error_msg:
+                            st.error(f"Validation error: {error_msg}")
+                        else:
+                            # Add weight class
+                            df["Weight Class"] = df["Weight"].apply(get_weight_class)
+
+                            # Store in session state
+                            st.session_state["fighters_df"] = df
+
+                            st.success("Data imported and validated successfully!")
+                            st.dataframe(df)
+
+                else:
+                    st.warning(
+                        "No data found in the sheet. Please check the URL and sharing settings."
+                    )
+
+            except Exception as e:
+                st.error(f"Error connecting to Google Sheets: {str(e)}")
+                st.info(
+                    "Make sure the sheet is publicly accessible or you have proper authentication set up."
+                )
+
+    elif ingestion_mode == "Database Tournament":
+        st.subheader("Database Tournament Selection")
+
+        try:
+            from utils.database import get_events, get_fighters
+
+            # Event selection
+            events = get_events()
+            if events:
+                event_options = {f"{e['name']} ({e['date']})": e["id"] for e in events}
+                selected_event_name = st.selectbox(
+                    "Select Event", list(event_options.keys())
+                )
+
+                if selected_event_name:
+                    event_id = event_options[selected_event_name]
+
+                    # Club filter
+                    all_fighters = get_fighters()
+                    clubs = list(
+                        set(
+                            f.get("clubs", {}).get("name", "Unknown")
+                            for f in all_fighters
+                            if f.get("clubs")
+                        )
+                    )
+                    selected_clubs = st.multiselect(
+                        "Filter by Clubs", clubs, default=clubs
+                    )
+
+                    # Get fighters for selected clubs
+                    filtered_fighters = [
+                        f
+                        for f in all_fighters
+                        if f.get("clubs", {}).get("name", "Unknown") in selected_clubs
+                    ]
+
+                    if filtered_fighters:
+                        st.subheader("Select Present Fighters")
+
+                        # Create checkboxes for fighter selection
+                        selected_fighter_ids = []
+                        for fighter in filtered_fighters:
+                            club_name = fighter.get("clubs", {}).get("name", "Unknown")
+                            fighter_name = f"{fighter['name']} ({club_name}, {fighter['weight_class']})"
+
+                            if st.checkbox(
+                                fighter_name, key=f"fighter_{fighter['id']}"
+                            ):
+                                selected_fighter_ids.append(fighter["id"])
+
+                        if st.button("Send to Staging for Pairing", type="primary"):
+                            if selected_fighter_ids:
+                                # Create dataframe from selected fighters
+                                selected_fighters_data = [
+                                    f
+                                    for f in filtered_fighters
+                                    if f["id"] in selected_fighter_ids
+                                ]
+
+                                # Convert to dataframe format expected by pairing
+                                df_data = []
+                                for f in selected_fighters_data:
+                                    df_data.append(
+                                        {
+                                            "Name": f["name"],
+                                            "Gender": f["gender"],
+                                            "Age": f.get(
+                                                "age", 25
+                                            ),  # Default if missing
+                                            "Weight": f["weight"],
+                                            "Club": f.get("clubs", {}).get(
+                                                "name", "Unknown"
+                                            ),
+                                            "Trainer": f.get("trainer", ""),
+                                            "Record": f.get("record_w", 0),
+                                            "Weight Class": f["weight_class"],
+                                        }
+                                    )
+
+                                df = pd.DataFrame(df_data)
+
+                                # Store in session state
+                                st.session_state["fighters_df"] = df
+
+                                st.success(
+                                    f"Staged {len(selected_fighter_ids)} fighters for pairing!"
+                                )
+                                st.dataframe(df)
+                            else:
+                                st.warning("Please select at least one fighter.")
+                    else:
+                        st.warning("No fighters found for selected clubs.")
+            else:
+                st.info("No events found in database. Please create events first.")
+
+        except Exception as e:
+            st.error(f"Database error: {str(e)}")
+            st.info("Make sure Supabase is properly configured.")
 
     if uploaded_file is not None:
         # Validate and load data
@@ -311,6 +581,73 @@ with tab4:
                     mime="application/pdf",
                 )
 
+        # Save to Database History
+        st.divider()
+        st.subheader("💾 Save to Database History")
+
+        try:
+            from utils.database import get_events, add_event, save_matches
+
+            # Event selection/creation
+            events = get_events()
+            event_options = ["Create New Event..."] + [
+                f"{e['name']} ({e['date']})" for e in events
+            ]
+
+            selected_event_option = st.selectbox(
+                "Select Event to Save Matches",
+                event_options,
+                help="Choose an existing event or create a new one",
+            )
+
+            if selected_event_option == "Create New Event...":
+                with st.form("create_event_form"):
+                    st.write("Create New Event")
+                    new_event_name = st.text_input("Event Name")
+                    new_event_date = st.date_input("Event Date")
+                    new_event_location = st.text_input("Location (optional)")
+
+                    create_submitted = st.form_submit_button(
+                        "Create Event & Save Matches"
+                    )
+
+                    if create_submitted and new_event_name and new_event_date:
+                        try:
+                            new_event = add_event(
+                                new_event_name, str(new_event_date), new_event_location
+                            )
+                            event_id = new_event["id"]
+
+                            # Save matches
+                            save_matches(event_id, matches_df)
+                            st.success(
+                                f"Event '{new_event_name}' created and matches saved successfully!"
+                            )
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error creating event: {str(e)}")
+            else:
+                # Existing event selected
+                event_name_selected = selected_event_option.split(" (")[0]
+                event = next(
+                    (e for e in events if e["name"] == event_name_selected), None
+                )
+
+                if event and st.button(
+                    "Save Matches to Selected Event", type="primary"
+                ):
+                    try:
+                        save_matches(event["id"], matches_df)
+                        st.success(
+                            f"Matches saved to event '{event_name_selected}' successfully!"
+                        )
+                    except Exception as e:
+                        st.error(f"Error saving matches: {str(e)}")
+
+        except Exception as e:
+            st.error(f"Database error: {str(e)}")
+            st.info("Make sure Supabase is properly configured.")
+
         # Statistics panel
         st.subheader(t("stats_header"))
         col1, col2, col3, col4 = st.columns(4)
@@ -351,22 +688,270 @@ with tab4:
 with tab5:
     st.header("👥 Manage Fighters")
 
-    st.info(
-        "Database integration coming soon! This tab will allow CRUD operations for fighters and clubs."
-    )
-
-    # Placeholder for future database integration
-    st.write("**Planned Features:**")
-    st.write("- Add/Edit/Delete fighters")
-    st.write("- Manage clubs and gyms")
-    st.write("- Bulk import/export from database")
-    st.write("- Archive inactive fighters")
-
-    # Show current data if available
-    if not st.session_state["fighters_df"].empty:
-        st.subheader("Current Fighter Data (from uploaded file)")
-        st.dataframe(st.session_state["fighters_df"])
-    else:
-        st.warning(
-            "No fighter data available. Upload data in the Data Upload tab first."
+    try:
+        from utils.database import (
+            get_fighters,
+            get_clubs,
+            add_fighter,
+            update_fighter,
+            deactivate_fighter,
+            add_club,
         )
+
+        # Tabs for different management functions
+        manage_tab1, manage_tab2, manage_tab3 = st.tabs(
+            ["➕ Add Fighter", "📝 Edit Fighters", "🏛️ Manage Clubs"]
+        )
+
+        with manage_tab1:
+            st.subheader("Add New Fighter")
+
+            with st.form("add_fighter_form"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    name = st.text_input("Name", key="add_name")
+                    gender = st.selectbox("Gender", ["M", "F"], key="add_gender")
+                    weight = st.number_input(
+                        "Weight (kg)",
+                        min_value=40.0,
+                        max_value=150.0,
+                        value=70.0,
+                        key="add_weight",
+                    )
+
+                with col2:
+                    age = st.number_input(
+                        "Age", min_value=16, max_value=100, value=25, key="add_age"
+                    )
+                    club_options = [""] + [club["name"] for club in get_clubs()]
+                    club = st.selectbox("Club", club_options, key="add_club")
+                    record = st.number_input(
+                        "Record (wins)",
+                        min_value=0,
+                        max_value=100,
+                        value=0,
+                        key="add_record",
+                    )
+
+                trainer = st.text_input("Trainer (optional)", key="add_trainer")
+
+                submitted = st.form_submit_button("Add Fighter")
+
+                if submitted:
+                    if not name or not gender or not weight:
+                        st.error("Please fill in required fields: Name, Gender, Weight")
+                    else:
+                        fighter_data = {
+                            "name": name,
+                            "gender": gender,
+                            "age": age,
+                            "weight": weight,
+                            "weight_class": get_weight_class(weight),
+                            "club_id": next(
+                                (c["id"] for c in get_clubs() if c["name"] == club),
+                                None,
+                            )
+                            if club
+                            else None,
+                            "trainer": trainer or "",
+                            "record_w": record,
+                            "record_l": 0,
+                            "active_status": True,
+                        }
+
+                        try:
+                            new_fighter = add_fighter(fighter_data)
+                            st.success(f"Fighter '{name}' added successfully!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error adding fighter: {str(e)}")
+
+        with manage_tab2:
+            st.subheader("Edit Existing Fighters")
+
+            fighters = get_fighters(active_only=False)
+            if fighters:
+                # Convert to DataFrame for editing
+                fighters_df = pd.DataFrame(
+                    [
+                        {
+                            "ID": f["id"],
+                            "Name": f["name"],
+                            "Gender": f["gender"],
+                            "Age": f["age"],
+                            "Weight": f["weight"],
+                            "Club": f.get("clubs", {}).get("name", ""),
+                            "Trainer": f.get("trainer", ""),
+                            "Record_W": f.get("record_w", 0),
+                            "Record_L": f.get("record_l", 0),
+                            "Active": f.get("active_status", True),
+                        }
+                        for f in fighters
+                    ]
+                )
+
+                st.write("Edit fighter details below. Changes are saved automatically.")
+
+                edited_df = st.data_editor(
+                    fighters_df,
+                    num_rows="fixed",
+                    use_container_width=True,
+                    key="fighters_editor",
+                    column_config={
+                        "ID": st.column_config.NumberColumn("ID", disabled=True),
+                        "Name": st.column_config.TextColumn("Name", required=True),
+                        "Gender": st.column_config.SelectboxColumn(
+                            "Gender", options=["M", "F"], required=True
+                        ),
+                        "Age": st.column_config.NumberColumn(
+                            "Age", min_value=16, max_value=100, required=True
+                        ),
+                        "Weight": st.column_config.NumberColumn(
+                            "Weight", min_value=40.0, max_value=150.0, required=True
+                        ),
+                        "Club": st.column_config.TextColumn("Club"),
+                        "Trainer": st.column_config.TextColumn("Trainer"),
+                        "Record_W": st.column_config.NumberColumn("Wins", min_value=0),
+                        "Record_L": st.column_config.NumberColumn(
+                            "Losses", min_value=0
+                        ),
+                        "Active": st.column_config.CheckboxColumn("Active"),
+                    },
+                )
+
+                if st.button("Save Changes", type="primary"):
+                    changes_made = 0
+                    for _, row in edited_df.iterrows():
+                        fighter_id = int(row["ID"])
+                        original = next(
+                            (f for f in fighters if f["id"] == fighter_id), None
+                        )
+
+                        if original:
+                            updates = {}
+                            if row["Name"] != original["name"]:
+                                updates["name"] = row["Name"]
+                            if row["Gender"] != original["gender"]:
+                                updates["gender"] = row["Gender"]
+                            if row["Age"] != original["age"]:
+                                updates["age"] = int(row["Age"])
+                            if row["Weight"] != original["weight"]:
+                                updates["weight"] = float(row["Weight"])
+                                updates["weight_class"] = get_weight_class(
+                                    float(row["Weight"])
+                                )
+                            if row["Trainer"] != original.get("trainer", ""):
+                                updates["trainer"] = row["Trainer"]
+                            if row["Record_W"] != original.get("record_w", 0):
+                                updates["record_w"] = int(row["Record_W"])
+                            if row["Record_L"] != original.get("record_l", 0):
+                                updates["record_l"] = int(row["Record_L"])
+                            if row["Active"] != original.get("active_status", True):
+                                updates["active_status"] = bool(row["Active"])
+
+                            if updates:
+                                try:
+                                    update_fighter(fighter_id, updates)
+                                    changes_made += 1
+                                except Exception as e:
+                                    st.error(
+                                        f"Error updating fighter {row['Name']}: {str(e)}"
+                                    )
+
+                    if changes_made > 0:
+                        st.success(f"Updated {changes_made} fighter(s) successfully!")
+                        st.rerun()
+                    else:
+                        st.info("No changes detected.")
+
+                # Deactivate fighters section
+                st.divider()
+                st.subheader("Deactivate Fighters")
+
+                active_fighters = [f for f in fighters if f.get("active_status", True)]
+                if active_fighters:
+                    fighter_names = [f["name"] for f in active_fighters]
+                    selected_to_deactivate = st.multiselect(
+                        "Select fighters to deactivate:",
+                        fighter_names,
+                        help="Deactivated fighters won't appear in tournament selections",
+                    )
+
+                    if st.button("Deactivate Selected Fighters", type="secondary"):
+                        deactivated_count = 0
+                        for name in selected_to_deactivate:
+                            fighter = next(
+                                (f for f in active_fighters if f["name"] == name), None
+                            )
+                            if fighter:
+                                try:
+                                    deactivate_fighter(fighter["id"])
+                                    deactivated_count += 1
+                                except Exception as e:
+                                    st.error(f"Error deactivating {name}: {str(e)}")
+
+                        if deactivated_count > 0:
+                            st.success(f"Deactivated {deactivated_count} fighter(s)!")
+                            st.rerun()
+                else:
+                    st.info("No active fighters to deactivate.")
+            else:
+                st.info(
+                    "No fighters found in database. Add fighters using the 'Add Fighter' tab."
+                )
+
+        with manage_tab3:
+            st.subheader("Manage Clubs")
+
+            clubs = get_clubs()
+
+            # Add new club
+            with st.form("add_club_form"):
+                st.write("Add New Club")
+                club_name = st.text_input("Club Name", key="club_name")
+                contact_info = st.text_area(
+                    "Contact Info (optional)", key="club_contact"
+                )
+
+                submitted = st.form_submit_button("Add Club")
+
+                if submitted and club_name:
+                    try:
+                        new_club = add_club(
+                            club_name,
+                            {"contact": contact_info} if contact_info else None,
+                        )
+                        st.success(f"Club '{club_name}' added successfully!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error adding club: {str(e)}")
+
+            # List existing clubs
+            if clubs:
+                st.subheader("Existing Clubs")
+                clubs_df = pd.DataFrame(
+                    [
+                        {
+                            "ID": c["id"],
+                            "Name": c["name"],
+                            "Contact Info": c.get("contact_info", {}),
+                        }
+                        for c in clubs
+                    ]
+                )
+                st.dataframe(clubs_df)
+            else:
+                st.info("No clubs found. Add your first club above.")
+
+    except Exception as e:
+        st.error(f"Database connection error: {str(e)}")
+        st.info("Make sure Supabase is properly configured in secrets.toml")
+
+        # Fallback: show current session data
+        if not st.session_state["fighters_df"].empty:
+            st.subheader("Current Fighter Data (from uploaded file)")
+            st.dataframe(st.session_state["fighters_df"])
+        else:
+            st.warning(
+                "No fighter data available. Upload data in the Data Upload tab first."
+            )
