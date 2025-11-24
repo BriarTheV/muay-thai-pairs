@@ -21,6 +21,7 @@ class Fighter:
     trainer: str
     record: int
     weight_class: str
+    dob: Optional[str] = None
 
 
 def create_fighters(df: pd.DataFrame) -> List[Fighter]:
@@ -31,12 +32,13 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
             index=idx,
             name=row["Name"],
             gender=row["Gender"],
-            age=row["Age"],
-            weight=row["Weight"],
+            age=int(row["Age"]),
+            weight=float(row["Weight"]),
             club=row["Club"],
             trainer=row["Trainer"],
-            record=row["Record"],
-            weight_class=row["Weight Class"],
+            record=int(row["Record"]),
+            weight_class=row["Weight_Class"],
+            dob=str(row.get("DOB")) if pd.notna(row.get("DOB")) else None,
         )
         fighters.append(fighter)
     return fighters

@@ -8,7 +8,11 @@ from utils.data_loader import (
     get_weight_class,
 )
 from utils.pairing import pair_fighters
-from utils.pdf_gen import generate_excel_matches, generate_pdf_bout_sheets
+from utils.pdf_gen import (
+    generate_excel_matches,
+    generate_excel_fighters,
+    generate_pdf_bout_sheets,
+)
 from utils.auth import require_auth, logout_user
 
 # Import GSheets connection (optional, for Google Sheets mode)
@@ -345,12 +349,18 @@ with tab1:
 
                     available_columns = list(df_raw.columns)
 
-                    col1, col2, col3, col4 = st.columns(4)
+                    # Required columns
+                    col1, col2, col3 = st.columns(3)
                     with col1:
                         name_col = st.selectbox(
                             "Name Column",
                             available_columns,
-                            index=0 if "name" in available_columns[0].lower() else None,
+                            index=0
+                            if any(
+                                "name" in col.lower() or "фамилия" in col.lower()
+                                for col in available_columns[:1]
+                            )
+                            else None,
                         )
                     with col2:
                         gender_col = st.selectbox(
@@ -364,26 +374,34 @@ with tab1:
                             available_columns,
                             index=2 if len(available_columns) > 2 else None,
                         )
+
+                    # Optional columns
+                    col4, col5, col6 = st.columns(3)
                     with col4:
                         club_col = st.selectbox(
-                            "Club Column",
-                            available_columns,
-                            index=3 if len(available_columns) > 3 else None,
+                            "Club Column (optional)", ["None"] + available_columns
                         )
-
-                    # Additional optional columns
-                    col5, col6, col7 = st.columns(3)
                     with col5:
+                        dob_col = st.selectbox(
+                            "DOB Column (optional)", ["None"] + available_columns
+                        )
+                    with col6:
                         age_col = st.selectbox(
                             "Age Column (optional)", ["None"] + available_columns
                         )
-                    with col6:
+
+                    col7, col8, col9 = st.columns(3)
+                    with col7:
                         trainer_col = st.selectbox(
                             "Trainer Column (optional)", ["None"] + available_columns
                         )
-                    with col7:
+                    with col8:
                         record_col = st.selectbox(
                             "Record Column (optional)", ["None"] + available_columns
+                        )
+                    with col9:
+                        wins_col = st.selectbox(
+                            "Wins Column (optional)", ["None"] + available_columns
                         )
 
                     if st.button("Import & Validate Data"):
@@ -392,15 +410,20 @@ with tab1:
                             "Name": name_col,
                             "Gender": gender_col,
                             "Weight": weight_col,
-                            "Club": club_col,
                         }
 
+                        if club_col != "None":
+                            column_mapping["Club"] = club_col
+                        if dob_col != "None":
+                            column_mapping["DOB"] = dob_col
                         if age_col != "None":
                             column_mapping["Age"] = age_col
                         if trainer_col != "None":
                             column_mapping["Trainer"] = trainer_col
                         if record_col != "None":
                             column_mapping["Record"] = record_col
+                        if wins_col != "None":
+                            column_mapping["Wins"] = wins_col
 
                         # Create mapped dataframe
                         df = df_raw.rename(
@@ -657,13 +680,18 @@ with tab4:
 
         with col1:
             if st.button(t("export_excel")):
-                excel_data = generate_excel_matches(matches_df)
-                st.download_button(
-                    label=t("download_excel"),
-                    data=excel_data,
-                    file_name=f"{event_name.replace(' ', '_')}_matches.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                )
+                # Export fighter data instead of matches
+                fighters_df = st.session_state.get("fighters_df", pd.DataFrame())
+                if not fighters_df.empty:
+                    excel_data = generate_excel_fighters(fighters_df)
+                    st.download_button(
+                        label=t("download_excel"),
+                        data=excel_data,
+                        file_name=f"{event_name.replace(' ', '_')}_fighters.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    )
+                else:
+                    st.warning("No fighter data to export.")
 
         with col2:
             if st.button(t("export_pdf")):
@@ -808,6 +836,7 @@ with tab5:
                     )
 
                 with col2:
+                    dob = st.date_input("Date of Birth (optional)", key="add_dob")
                     age = st.number_input(
                         "Age", min_value=16, max_value=100, value=25, key="add_age"
                     )
@@ -822,6 +851,13 @@ with tab5:
                     )
 
                 trainer = st.text_input("Trainer (optional)", key="add_trainer")
+                wins = st.number_input(
+                    "Wins (optional)",
+                    min_value=0,
+                    max_value=100,
+                    value=0,
+                    key="add_wins",
+                )
 
                 submitted = st.form_submit_button("Add Fighter")
 
@@ -832,6 +868,7 @@ with tab5:
                         fighter_data = {
                             "name": name,
                             "gender": gender,
+                            "dob": str(dob) if dob else None,
                             "age": age,
                             "weight": weight,
                             "weight_class": get_weight_class(weight),
@@ -843,7 +880,7 @@ with tab5:
                             else None,
                             "trainer": trainer or "",
                             "record_w": record,
-                            "record_l": 0,
+                            "record_l": max(0, record - wins),  # Calculate losses
                             "active_status": True,
                         }
 
