@@ -190,6 +190,25 @@ with tab1:
                     if wins_col != "None":
                         column_mapping[wins_col] = "Wins"
 
+                    # Validate no duplicate column selections
+                    selected_columns = [name_col, gender_col, weight_col]
+                    if club_col != "None":
+                        selected_columns.append(club_col)
+                    if dob_col != "None":
+                        selected_columns.append(dob_col)
+                    if age_col != "None":
+                        selected_columns.append(age_col)
+                    if trainer_col != "None":
+                        selected_columns.append(trainer_col)
+                    if record_col != "None":
+                        selected_columns.append(record_col)
+                    if wins_col != "None":
+                        selected_columns.append(wins_col)
+
+                    if len(set(selected_columns)) < len(selected_columns):
+                        st.error(t("duplicate_columns_error"))
+                        st.stop()  # Don't proceed with import
+
             # Validate and load data
             df, error_msg = validate_excel_file(uploaded_file, column_mapping)
             # Validate and load data
