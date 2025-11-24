@@ -84,35 +84,43 @@ def validate_excel_file(
             return None, "Unsupported file format. Please use .xlsx or .ods files."
 
         # Read spreadsheet file
-        df = pd.read_excel(uploaded_file, engine=engine, header=0)
+        df = pd.read_excel(uploaded_file, engine=engine, header=None)
+        df.columns = [
+            "Timestamp",
+            "Gender",
+            "Name",
+            "DOB",
+            "Unknown1",
+            "Weight_Range",
+            "Weight_Class",
+            "Class",
+            "Club",
+            "Trainer",
+            "Total_Fights",
+            "Wins",
+        ]
+
+        # Calculate losses
+        df["Losses"] = df["Total_Fights"] - df["Wins"]
 
         if column_mapping:
             # Use provided mapping
             df = df.rename(columns=column_mapping)
         else:
-            # Assume fixed column order and rename
-            expected_columns = [
-                "Name",
-                "Gender",
-                "Age",
-                "Weight Class",
-                "Club",
-                "Trainer",
-                "Record",
-            ]
-            if len(df.columns) < 4:  # At least Name, Gender, Age, Weight
-                return (
-                    None,
-                    f"File must have at least 4 columns. Found {len(df.columns)}.",
-                )
-
-            # Rename columns by position
-            position_mapping = {}
-            for i, col in enumerate(expected_columns):
-                if i < len(df.columns):
-                    position_mapping[df.columns[i]] = col
-
-            df = df.rename(columns=position_mapping)
+            # Map standard columns for this data format
+            standard_mapping = {
+                "Name": "Name",
+                "Gender": "Gender",
+                "DOB": "DOB",
+                "Weight_Class": "Weight Class",
+                "Club": "Club",
+                "Trainer": "Trainer",
+                "Total_Fights": "Record",
+                "Wins": "Wins",
+                "Losses": "Losses",
+                "Class": "Class",
+            }
+            df = df.rename(columns=standard_mapping)
 
             # Parse weight categories
             weight_column = "Weight Class" if "Weight Class" in df.columns else "Weight"

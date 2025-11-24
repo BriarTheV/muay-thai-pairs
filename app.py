@@ -808,8 +808,8 @@ with tab5:
                     )
                     club_options = [""] + [club["name"] for club in get_clubs()]
                     club = st.selectbox(t("fighter_club"), club_options, key="add_club")
-                    record = st.number_input(
-                        "Record (wins)",
+                    total_fights = st.number_input(
+                        "Total Fights",
                         min_value=0,
                         max_value=100,
                         value=0,
@@ -852,8 +852,8 @@ with tab5:
                             if club
                             else None,
                             "trainer": trainer or "",
-                            "record_w": record,
-                            "record_l": wins,
+                            "record_w": wins,
+                            "record_l": total_fights - wins,
                             "class": fighter_class or None,
                         }
 

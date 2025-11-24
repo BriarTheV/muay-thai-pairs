@@ -39,7 +39,7 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
             weight_max=float(row.get("Weight_Max", row.get("Weight", 999))),
             club=row["Club"],
             trainer=row["Trainer"],
-            record=int(row["Record"]),
+            record=int(row.get("Record", row.get("Total_Fights", 0))),
             weight_class=row["Weight Class"],
             class_level=row.get("Class"),
             dob=str(row.get("DOB")) if pd.notna(row.get("DOB")) else None,
