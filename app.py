@@ -89,7 +89,7 @@ with tab1:
     if ingestion_mode == t("file_upload"):
         # File uploader
         uploaded_file = st.file_uploader(
-            t("upload_help"), type=["xlsx"], help=t("upload_help")
+            t("upload_help"), type=["xlsx", "ods"], help=t("upload_help")
         )
 
         if uploaded_file is not None:

@@ -45,12 +45,21 @@ def validate_excel_file(uploaded_file) -> Tuple[Optional[pd.DataFrame], str]:
         return None, "No file uploaded"
 
     try:
-        # Read Excel file
-        df = pd.read_excel(uploaded_file, engine="openpyxl")
+        # Determine file type and appropriate engine
+        file_name = uploaded_file.name.lower()
+        if file_name.endswith(".xlsx"):
+            engine = "openpyxl"
+        elif file_name.endswith(".ods"):
+            engine = "odf"
+        else:
+            return None, "Unsupported file format. Please use .xlsx or .ods files."
+
+        # Read spreadsheet file
+        df = pd.read_excel(uploaded_file, engine=engine)
         return validate_fighter_dataframe(df)
 
     except Exception as e:
-        return None, f"Error reading Excel file: {str(e)}"
+        return None, f"Error reading spreadsheet file: {str(e)}"
 
 
 def validate_fighter_dataframe(df: pd.DataFrame) -> Tuple[Optional[pd.DataFrame], str]:
