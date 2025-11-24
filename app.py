@@ -80,10 +80,10 @@ with tab1:
 
     # Data ingestion mode selection
     ingestion_mode = st.radio(
-        "Select Data Source:",
-        ["File Upload", "Google Sheets", "Database Tournament"],
+        t("data_ingestion_mode"),
+        [t("file_upload"), t("database_tournament")],
         index=0,
-        help="Choose how to load fighter data",
+        horizontal=True,
     )
 
     if ingestion_mode == "File Upload":
@@ -128,9 +128,9 @@ with tab1:
         else:
             # Sheet URL input
             sheet_url = st.text_input(
-                "Google Sheets URL",
+                t("google_sheets_url"),
                 placeholder="https://docs.google.com/spreadsheets/d/.../edit",
-                help="Paste the full URL of your Google Sheet",
+                help=t("gsheets_help"),
             )
 
             if sheet_url:
@@ -163,7 +163,7 @@ with tab1:
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         name_col = st.selectbox(
-                            "Name Column",
+                            t("name_column"),
                             available_columns,
                             index=0
                             if any(
@@ -172,46 +172,46 @@ with tab1:
                             )
                             else None,
                         )
-                    with col2:
-                        gender_col = st.selectbox(
-                            "Gender Column",
-                            available_columns,
-                            index=1 if len(available_columns) > 1 else None,
-                        )
-                    with col3:
-                        weight_col = st.selectbox(
-                            "Weight Column",
-                            available_columns,
-                            index=2 if len(available_columns) > 2 else None,
-                        )
+                        with col2:
+                            gender_col = st.selectbox(
+                                t("gender_column"),
+                                available_columns,
+                                index=1 if len(available_columns) > 1 else None,
+                            )
+                        with col3:
+                            weight_col = st.selectbox(
+                                t("weight_column"),
+                                available_columns,
+                                index=2 if len(available_columns) > 2 else None,
+                            )
 
                     # Optional columns
                     col4, col5, col6 = st.columns(3)
                     with col4:
                         club_col = st.selectbox(
-                            "Club Column (optional)", ["None"] + available_columns
+                            t("club_column_optional"), ["None"] + available_columns
                         )
                     with col5:
                         dob_col = st.selectbox(
-                            "DOB Column (optional)", ["None"] + available_columns
+                            t("dob_column_optional"), ["None"] + available_columns
                         )
                     with col6:
                         age_col = st.selectbox(
-                            "Age Column (optional)", ["None"] + available_columns
+                            t("age_column_optional"), ["None"] + available_columns
                         )
 
                     col7, col8, col9 = st.columns(3)
                     with col7:
                         trainer_col = st.selectbox(
-                            "Trainer Column (optional)", ["None"] + available_columns
+                            t("trainer_column_optional"), ["None"] + available_columns
                         )
                     with col8:
                         record_col = st.selectbox(
-                            "Record Column (optional)", ["None"] + available_columns
+                            t("record_column_optional"), ["None"] + available_columns
                         )
                     with col9:
                         wins_col = st.selectbox(
-                            "Wins Column (optional)", ["None"] + available_columns
+                            t("wins_column_optional"), ["None"] + available_columns
                         )
 
                     if st.button(t("import_validate_data")):
@@ -274,7 +274,11 @@ with tab1:
             if events:
                 event_options = {f"{e['name']} ({e['date']})": e["id"] for e in events}
                 selected_event_name = st.selectbox(
-                    "Select Event", list(event_options.keys())
+                    t("select_event"),
+                    list(event_options.keys())
+                    if event_options
+                    else [t("no_events_db")],
+                    key="selected_event",
                 )
 
                 if selected_event_name:
@@ -419,7 +423,7 @@ with tab2:
                 warnings.append(f"{len(high_age_diff)} {t('warning_high_age')}")
 
             if warnings:
-                st.warning(" ⚠️ " + "; ".join(warnings))
+                st.warning(" ⚠️ " + t("warnings") + ": " + "; ".join(warnings))
 
         if not st.session_state["unmatched"].empty:
             st.subheader(t("header_unmatched"))
@@ -477,7 +481,7 @@ with tab4:
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     )
                 else:
-                    st.warning("No fighter data to export.")
+                    st.warning(t("no_fighter_data_export"))
 
         with col2:
             if st.button(t("export_pdf")):
@@ -511,12 +515,14 @@ with tab4:
             if selected_event_option == "Create New Event...":
                 with st.form("create_event_form"):
                     st.write(t("create_event"))
-                    new_event_name = st.text_input("Event Name")
-                    new_event_date = st.date_input("Event Date")
-                    new_event_location = st.text_input("Location (optional)")
+                    new_event_name = st.text_input(t("event_name"))
+                    new_event_date = st.date_input(
+                        t("event_date")
+                    )  # Keep as is, or translate if needed
+                    new_event_location = st.text_input(t("location_optional"))
 
                     create_submitted = st.form_submit_button(
-                        "Create Event & Save Matches"
+                        t("create_event_save_matches")
                     )
 
                     if create_submitted and new_event_name and new_event_date:
@@ -600,6 +606,10 @@ with tab5:
             add_club,
         )
 
+        # Get data
+        clubs = get_clubs()
+        club_options = [""] + [club["name"] for club in clubs]
+
         # Tabs for different management functions
         manage_tab1, manage_tab2, manage_tab3 = st.tabs(
             ["➕ Add Fighter", "📝 Edit Fighters", "🏛️ Manage Clubs"]
@@ -611,15 +621,41 @@ with tab5:
             with st.form("add_fighter_form"):
                 col1, col2 = st.columns(2)
                 with col1:
-                    name = st.text_input("Name", key="add_name")
-                    gender = st.selectbox("Gender", ["M", "F"], key="add_gender")
+                    name = st.text_input(t("fighter_name"), key="add_name")
+                    gender = st.selectbox(
+                        t("fighter_gender"), ["M", "F"], key="add_gender"
+                    )
                     weight = st.number_input(
-                        "Weight (kg)",
+                        t("fighter_weight"),
                         min_value=40.0,
                         max_value=150.0,
                         value=70.0,
+                        step=0.1,
                         key="add_weight",
                     )
+                    age = st.number_input(
+                        t("fighter_age"),
+                        min_value=10,
+                        max_value=100,
+                        value=25,
+                        key="add_age",
+                    )
+                    club = st.selectbox(t("fighter_club"), club_options, key="add_club")
+                    record = st.number_input(
+                        t("fighter_record"),
+                        min_value=0,
+                        value=0,
+                        key="add_record",
+                    )
+                trainer = st.text_input(
+                    t("fighter_trainer_optional"), key="add_trainer"
+                )
+                wins = st.number_input(
+                    t("fighter_wins"),
+                    min_value=0,
+                    value=0,
+                    key="add_wins",
+                )
 
                 with col2:
                     dob = st.date_input("Date of Birth (optional)", key="add_dob")
@@ -826,9 +862,11 @@ with tab5:
             # Add new club
             with st.form("add_club_form"):
                 st.write(t("add_club"))
-                club_name = st.text_input("Club Name", key="club_name")
+                club_name = st.text_input(t("club_name"), key="club_name")
                 contact_info = st.text_area(
-                    "Contact Info (optional)", key="club_contact"
+                    t("contact_info_json"),
+                    placeholder='{"phone": "+1234567890", "email": "club@example.com"}',
+                    key="club_contact",
                 )
 
                 submitted = st.form_submit_button("Add Club")
