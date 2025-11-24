@@ -127,9 +127,26 @@ with tab1:
                 st.subheader(t("column_mapping"))
                 st.write(t("map_columns"))
 
-                available_columns = [
-                    str(col) for col in pd.read_excel(uploaded_file, nrows=0).columns
+                # Get available columns
+                temp_cols = pd.read_excel(uploaded_file, nrows=0, header=None).columns
+                expected_columns = [
+                    "Timestamp",
+                    "Gender",
+                    "Name",
+                    "DOB",
+                    "Unknown1",
+                    "Weight_Range",
+                    "Weight_Class",
+                    "Class",
+                    "Club",
+                    "Trainer",
+                    "Total_Fights",
+                    "Wins",
                 ]
+                if len(temp_cols) == len(expected_columns):
+                    available_columns = expected_columns
+                else:
+                    available_columns = [f"Col{i + 1}" for i in range(len(temp_cols))]
                 if len(available_columns) < 4:
                     st.error(
                         t("error_loading_data")

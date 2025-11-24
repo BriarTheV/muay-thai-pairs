@@ -85,7 +85,9 @@ def validate_excel_file(
 
         # Read spreadsheet file
         df = pd.read_excel(uploaded_file, engine=engine, header=None)
-        df.columns = [
+
+        # Assign column names based on expected structure
+        expected_columns = [
             "Timestamp",
             "Gender",
             "Name",
@@ -99,9 +101,16 @@ def validate_excel_file(
             "Total_Fights",
             "Wins",
         ]
+        if len(df.columns) == len(expected_columns):
+            df.columns = expected_columns
+        else:
+            df.columns = [f"Col{i + 1}" for i in range(len(df.columns))]
 
-        # Calculate losses
-        df["Losses"] = df["Total_Fights"] - df["Wins"]
+        # Calculate losses if columns exist
+        if "Total_Fights" in df.columns and "Wins" in df.columns:
+            df["Losses"] = df["Total_Fights"] - df["Wins"]
+        else:
+            df["Losses"] = 0
 
         if column_mapping:
             # Use provided mapping
