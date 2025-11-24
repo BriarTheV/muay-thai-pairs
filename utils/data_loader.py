@@ -33,7 +33,8 @@ RUSSIAN_COLUMN_MAPPING = {
 
 def validate_excel_file(uploaded_file) -> Tuple[Optional[pd.DataFrame], str]:
     """
-    Validate and load Excel file with fighter data.
+    Validate and load spreadsheet file with fighter data.
+    Assumes columns in order: Name, Gender, Age, Weight, Club, Trainer, Record
 
     Args:
         uploaded_file: Streamlit uploaded file object
@@ -55,7 +56,34 @@ def validate_excel_file(uploaded_file) -> Tuple[Optional[pd.DataFrame], str]:
             return None, "Unsupported file format. Please use .xlsx or .ods files."
 
         # Read spreadsheet file
-        df = pd.read_excel(uploaded_file, engine=engine)
+        df = pd.read_excel(uploaded_file, engine=engine, header=0)
+
+        # Assume fixed column order and rename
+        expected_columns = [
+            "Name",
+            "Gender",
+            "Age",
+            "Weight",
+            "Club",
+            "Trainer",
+            "Record",
+        ]
+        if len(df.columns) < 4:  # At least Name, Gender, Age, Weight
+            return None, f"File must have at least 4 columns. Found {len(df.columns)}."
+
+        # Rename columns by position
+        column_mapping = {}
+        for i, col in enumerate(expected_columns):
+            if i < len(df.columns):
+                column_mapping[df.columns[i]] = col
+
+        df = df.rename(columns=column_mapping)
+
+        # Fill missing optional columns with empty strings
+        for col in expected_columns:
+            if col not in df.columns:
+                df[col] = ""
+
         return validate_fighter_dataframe(df)
 
     except Exception as e:
