@@ -656,9 +656,13 @@ with tab5:
                 )
 
                 with col2:
-                    dob = st.date_input("Date of Birth (optional)", key="add_dob")
+                    dob = st.date_input(t("dob_optional"), key="add_dob")
                     age = st.number_input(
-                        "Age", min_value=16, max_value=100, value=25, key="add_age"
+                        t("fighter_age"),
+                        min_value=16,
+                        max_value=100,
+                        value=25,
+                        key="add_age",
                     )
                     club_options = [""] + [club["name"] for club in get_clubs()]
                     club = st.selectbox(t("fighter_club"), club_options, key="add_club")
@@ -743,24 +747,33 @@ with tab5:
                     use_container_width=True,
                     key="fighters_editor",
                     column_config={
-                        "ID": st.column_config.NumberColumn("ID", disabled=True),
-                        "Name": st.column_config.TextColumn("Name", required=True),
+                        "ID": st.column_config.NumberColumn(
+                            t("column_id"), disabled=True
+                        ),
+                        "Name": st.column_config.TextColumn(
+                            t("column_name"), required=True
+                        ),
                         "Gender": st.column_config.SelectboxColumn(
-                            "Gender", options=["M", "F"], required=True
+                            t("column_gender"), options=["M", "F"], required=True
                         ),
                         "Age": st.column_config.NumberColumn(
-                            "Age", min_value=16, max_value=100, required=True
+                            t("column_age"), min_value=10, max_value=100, required=True
                         ),
                         "Weight": st.column_config.NumberColumn(
-                            "Weight", min_value=40.0, max_value=150.0, required=True
+                            t("column_weight"),
+                            min_value=40.0,
+                            max_value=150.0,
+                            required=True,
                         ),
-                        "Club": st.column_config.TextColumn("Club"),
-                        "Trainer": st.column_config.TextColumn("Trainer"),
-                        "Record_W": st.column_config.NumberColumn("Wins", min_value=0),
+                        "Club": st.column_config.TextColumn(t("column_club")),
+                        "Trainer": st.column_config.TextColumn(t("column_trainer")),
+                        "Record_W": st.column_config.NumberColumn(
+                            t("column_wins"), min_value=0
+                        ),
                         "Record_L": st.column_config.NumberColumn(
-                            "Losses", min_value=0
+                            t("column_losses"), min_value=0
                         ),
-                        "Active": st.column_config.CheckboxColumn("Active"),
+                        "Active": st.column_config.CheckboxColumn(t("column_active")),
                     },
                 )
 
