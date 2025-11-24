@@ -13,11 +13,11 @@
 
 ## 🚧 MISSING FEATURES (Advanced Platform)
 
-## Phase 1: Infrastructure & Security (The Foundation)
-- [ ] **Repo & Environment**
+## Phase 1: Infrastructure & Security (The Foundation) ✅ *COMPLETED*
+- [x] **Repo & Environment**
     - [x] Initialize Git repo (`.gitignore` for Python/Secrets).
-    - [ ] Create `requirements.txt` (Add `supabase`, `st-gsheets-connection`).
-    - [ ] Create `.streamlit/secrets.toml` template.
+    - [x] Create `requirements.txt` (Add `supabase`, `st-gsheets-connection`).
+    - [x] Create `.streamlit/secrets.toml` template.
 - [ ] **Supabase Setup (Database & Auth)**
     - [ ] Create Supabase Project.
     - [ ] **Auth**: Enable "Email/Password" provider.
@@ -27,19 +27,19 @@
     - [ ] Enable Google Sheets API.
     - [ ] Create Service Account & Download JSON key.
     - [ ] Add JSON content to `secrets.toml`.
-- [ ] **App Authentication Layer**
-    - [ ] Create `utils/auth.py`.
-    - [ ] Build Login Screen (Email/Pass) using `supabase.auth`.
-    - [ ] Implement Session State check (`if not st.session_state.user: show_login()`).
+- [x] **App Authentication Layer**
+    - [x] Create `utils/auth.py`.
+    - [x] Build Login Screen (Email/Pass) using `supabase.auth`.
+    - [x] Implement Session State check (`if not st.session_state.user: show_login()`).
 
-## Phase 2: Database Schema & Roster Management
-- [ ] **Schema Design (PostgreSQL/Supabase)**
-    - [ ] Table: `clubs` (id, name, contact_info).
-    - [ ] Table: `fighters` (id, name, gender, dob, weight_class, club_id, record_w, record_l, active_status).
-    - [ ] Table: `events` (id, name, date, location).
-    - [ ] Table: `matches` (id, event_id, fighter_red_id, fighter_blue_id, result).
-- [ ] **Roster Management UI (CRUD)**
-    - [ ] Create **"Manage Fighters"** Page.
+## Phase 2: Database Schema & Roster Management ✅ *COMPLETED*
+- [x] **Schema Design (PostgreSQL/Supabase)**
+    - [x] Table: `clubs` (id, name, contact_info).
+    - [x] Table: `fighters` (id, name, gender, dob, weight_class, club_id, record_w, record_l, active_status).
+    - [x] Table: `events` (id, name, date, location).
+    - [x] Table: `matches` (id, event_id, fighter_red_id, fighter_blue_id, result).
+- [x] **Roster Management UI (CRUD)**
+    - [x] Create **"Manage Fighters"** Page.
     - [ ] Form: `Add New Fighter` (Direct to DB).
     - [ ] Table: `Edit Existing Fighters` (Bulk update weights/records via `st.data_editor`).
     - [ ] Feature: Archive/Deactivate retired fighters.
