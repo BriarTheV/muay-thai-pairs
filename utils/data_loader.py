@@ -137,6 +137,88 @@ def validate_excel_file(
         return None, f"Error validating data: {str(e)}"
 
 
+def validate_fighter_dataframe(df: pd.DataFrame) -> Tuple[Optional[pd.DataFrame], str]:
+    """
+    Validate and clean fighter data in DataFrame format.
+
+    Performs data type validation, fills missing values, and ensures data integrity.
+
+    Args:
+        df: DataFrame with fighter data after column processing
+
+    Returns:
+        Tuple of (validated DataFrame or None, error message string)
+    """
+    # Check for empty data
+    if df is None or df.empty:
+        return None, "No data provided"
+
+    try:
+        # Validate and convert Age column
+        if "Age" in df.columns:
+            df["Age"] = pd.to_numeric(df["Age"], errors="coerce")
+            # Fill missing ages with default
+            if df["Age"].isna().any():
+                df["Age"] = df["Age"].fillna(25)
+        else:
+            df["Age"] = 25  # Default age if column missing
+
+        df["Age"] = df["Age"].astype(int)
+
+        # Validate and convert Record column (total fights)
+        if "Record" in df.columns:
+            df["Record"] = (
+                pd.to_numeric(df["Record"], errors="coerce").fillna(0).astype(int)
+            )
+        else:
+            df["Record"] = 0
+
+        # Validate Class column
+        if "Class" in df.columns:
+            df["Class"] = df["Class"].astype(str).str.upper().str.strip()
+            valid_classes = ["A", "B", "C", ""]
+            invalid_mask = ~df["Class"].isin(valid_classes)
+            if invalid_mask.any():
+                invalid_rows = df[invalid_mask].index.tolist()
+                return (
+                    None,
+                    f"Invalid class values found. Use A, B, C, or leave empty. Invalid rows: {invalid_rows}",
+                )
+        else:
+            df["Class"] = ""
+
+        # Handle optional fields
+        optional_fields = ["Club", "Trainer", "Age_Category"]
+        for field in optional_fields:
+            if field in df.columns:
+                df[field] = df[field].fillna("").astype(str)
+            else:
+                df[field] = ""
+
+        # Validate required Name field
+        if "Name" not in df.columns:
+            return None, "Required 'Name' column is missing"
+
+        # Remove rows with missing or empty names
+        df = df.dropna(subset=["Name"])
+        df["Name"] = df["Name"].astype(str).str.strip()
+        df = df[df["Name"] != ""]
+
+        if df.empty:
+            return None, "No valid fighter data found after cleaning"
+
+        # Ensure all required columns exist
+        required_columns = ["Name", "Gender", "Age"]
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return None, f"Missing required columns: {', '.join(missing_columns)}"
+
+        return df, ""
+
+    except Exception as e:
+        return None, f"Error validating data: {str(e)}"
+
+
 def get_weight_class(weight: float) -> str:
     """
     Assign IFMA weight class based on weight in kg.
