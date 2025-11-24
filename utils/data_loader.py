@@ -129,12 +129,6 @@ def validate_excel_file(
             else:
                 df.columns = [f"Col{i + 1}" for i in range(len(df.columns))]
 
-        # Calculate losses if columns exist
-        if "Total_Fights" in df.columns and "Wins" in df.columns:
-            df["Losses"] = df["Total_Fights"] - df["Wins"]
-        else:
-            df["Losses"] = 0
-
         if column_mapping:
             # Use provided mapping
             df = df.rename(columns=column_mapping)
@@ -212,6 +206,27 @@ def validate_fighter_dataframe(df: pd.DataFrame) -> Tuple[Optional[pd.DataFrame]
             )
         else:
             df["Record"] = 0
+
+        # Validate and convert Total_Fights and Wins columns
+        if "Total_Fights" in df.columns:
+            df["Total_Fights"] = (
+                pd.to_numeric(df["Total_Fights"], errors="coerce").fillna(0).astype(int)
+            )
+        else:
+            df["Total_Fights"] = 0
+
+        if "Wins" in df.columns:
+            df["Wins"] = (
+                pd.to_numeric(df["Wins"], errors="coerce").fillna(0).astype(int)
+            )
+        else:
+            df["Wins"] = 0
+
+        # Calculate Losses if both columns exist
+        if "Total_Fights" in df.columns and "Wins" in df.columns:
+            df["Losses"] = df["Total_Fights"] - df["Wins"]
+        else:
+            df["Losses"] = 0
 
         # Validate Class column
         if "Class" in df.columns:
