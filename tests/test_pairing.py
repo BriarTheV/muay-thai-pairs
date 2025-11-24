@@ -14,7 +14,9 @@ def test_gender_separation():
             "Club": ["Club1", "Club2", "Club3", "Club4"],
             "Trainer": ["T1", "T2", "T3", "T4"],
             "Record": [0, 0, 0, 0],
-            "Weight Class": ["Light"] * 4,
+            "Weight Class": [60.0, 60.0, 60.0, 60.0],
+            "Weight_Min": [60.0, 60.0, 60.0, 60.0],
+            "Weight_Max": [60.0, 60.0, 60.0, 60.0],
         }
     )
 
@@ -41,7 +43,9 @@ def test_same_club_prevention():
             "Club": ["SameClub", "SameClub", "DifferentClub"],
             "Trainer": ["T1", "T2", "T3"],
             "Record": [0, 0, 0],
-            "Weight Class": ["Light"] * 3,
+            "Weight Class": [60.0, 60.0, 60.0],
+            "Weight_Min": [60.0, 60.0, 60.0],
+            "Weight_Max": [60.0, 60.0, 60.0],
         }
     )
 
@@ -68,7 +72,9 @@ def test_odd_number_unmatched():
             "Club": ["C1", "C2", "C3"],
             "Trainer": ["T1", "T2", "T3"],
             "Record": [0, 0, 0],
-            "Weight Class": ["Welter"] * 3,
+            "Weight Class": [70.0, 70.0, 70.0],
+            "Weight_Min": [70.0, 70.0, 70.0],
+            "Weight_Max": [70.0, 70.0, 70.0],
         }
     )
 
@@ -91,6 +97,7 @@ def test_weight_tolerance():
             "Trainer": ["T1", "T2"],
             "Record": [0, 0],
             "Weight Class": ["Welter", "Welter"],
+            "Weight_Max": [70.0, 70.4],
         }
     )
 
