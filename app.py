@@ -93,6 +93,102 @@ with tab1:
         )
 
         if uploaded_file is not None:
+            # Column order option
+            use_standard_order = st.checkbox(
+                t("use_standard_column_order"),
+                value=True,
+                help=t("standard_order_help"),
+            )
+
+            column_mapping = None
+            if not use_standard_order:
+                # Show column mapping UI
+                st.subheader(t("column_mapping"))
+                st.write(t("map_columns"))
+
+                available_columns = list(pd.read_excel(uploaded_file, nrows=0).columns)
+                if len(available_columns) < 4:
+                    st.error(
+                        t("error_loading_data")
+                        + f": File must have at least 4 columns. Found {len(available_columns)}."
+                    )
+                else:
+                    # Required columns
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        name_col = st.selectbox(
+                            t("name_column"),
+                            available_columns,
+                            index=0
+                            if any(
+                                "name" in col.lower() or "фамилия" in col.lower()
+                                for col in available_columns[:1]
+                            )
+                            else None,
+                        )
+                    with col2:
+                        gender_col = st.selectbox(
+                            t("gender_column"),
+                            available_columns,
+                            index=1 if len(available_columns) > 1 else None,
+                        )
+                    with col3:
+                        weight_col = st.selectbox(
+                            t("weight_column"),
+                            available_columns,
+                            index=2 if len(available_columns) > 2 else None,
+                        )
+
+                    # Optional columns
+                    col4, col5, col6 = st.columns(3)
+                    with col4:
+                        club_col = st.selectbox(
+                            t("club_column_optional"), ["None"] + available_columns
+                        )
+                    with col5:
+                        dob_col = st.selectbox(
+                            t("dob_column_optional"), ["None"] + available_columns
+                        )
+                    with col6:
+                        age_col = st.selectbox(
+                            t("age_column_optional"), ["None"] + available_columns
+                        )
+
+                    col7, col8, col9 = st.columns(3)
+                    with col7:
+                        trainer_col = st.selectbox(
+                            t("trainer_column_optional"), ["None"] + available_columns
+                        )
+                    with col8:
+                        record_col = st.selectbox(
+                            t("record_column_optional"), ["None"] + available_columns
+                        )
+                    with col9:
+                        wins_col = st.selectbox(
+                            t("wins_column_optional"), ["None"] + available_columns
+                        )
+
+                    # Create mapping
+                    column_mapping = {
+                        name_col: "Name",
+                        gender_col: "Gender",
+                        weight_col: "Weight",
+                    }
+                    if club_col != "None":
+                        column_mapping[club_col] = "Club"
+                    if dob_col != "None":
+                        column_mapping[dob_col] = "DOB"
+                    if age_col != "None":
+                        column_mapping[age_col] = "Age"
+                    if trainer_col != "None":
+                        column_mapping[trainer_col] = "Trainer"
+                    if record_col != "None":
+                        column_mapping[record_col] = "Record"
+                    if wins_col != "None":
+                        column_mapping[wins_col] = "Wins"
+
+            # Validate and load data
+            df, error_msg = validate_excel_file(uploaded_file, column_mapping)
             # Validate and load data
             df, error_msg = validate_excel_file(uploaded_file)
 

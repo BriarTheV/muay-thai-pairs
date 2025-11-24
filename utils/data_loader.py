@@ -1,7 +1,7 @@
 # utils/data_loader.py - Excel validation and cleaning
 
 import pandas as pd
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict
 
 EXPECTED_COLUMNS = [
     "Name",
@@ -31,13 +31,16 @@ RUSSIAN_COLUMN_MAPPING = {
 }
 
 
-def validate_excel_file(uploaded_file) -> Tuple[Optional[pd.DataFrame], str]:
+def validate_excel_file(
+    uploaded_file, column_mapping: Optional[Dict[str, str]] = None
+) -> Tuple[Optional[pd.DataFrame], str]:
     """
     Validate and load spreadsheet file with fighter data.
-    Assumes columns in order: Name, Gender, Age, Weight, Club, Trainer, Record
+    If column_mapping provided, uses it; otherwise assumes standard order.
 
     Args:
         uploaded_file: Streamlit uploaded file object
+        column_mapping: Optional dict mapping file columns to standard names
 
     Returns:
         Tuple of (DataFrame or None, error message)
@@ -58,31 +61,40 @@ def validate_excel_file(uploaded_file) -> Tuple[Optional[pd.DataFrame], str]:
         # Read spreadsheet file
         df = pd.read_excel(uploaded_file, engine=engine, header=0)
 
-        # Assume fixed column order and rename
-        expected_columns = [
-            "Name",
-            "Gender",
-            "Age",
-            "Weight",
-            "Club",
-            "Trainer",
-            "Record",
-        ]
-        if len(df.columns) < 4:  # At least Name, Gender, Age, Weight
-            return None, f"File must have at least 4 columns. Found {len(df.columns)}."
+        if column_mapping:
+            # Use provided mapping
+            df = df.rename(columns=column_mapping)
+        else:
+            # Assume fixed column order and rename
+            expected_columns = [
+                "Name",
+                "Gender",
+                "Age",
+                "Weight",
+                "Club",
+                "Trainer",
+                "Record",
+            ]
+            if len(df.columns) < 4:  # At least Name, Gender, Age, Weight
+                return (
+                    None,
+                    f"File must have at least 4 columns. Found {len(df.columns)}.",
+                )
 
-        # Rename columns by position
-        column_mapping = {}
-        for i, col in enumerate(expected_columns):
-            if i < len(df.columns):
-                column_mapping[df.columns[i]] = col
+            # Rename columns by position
+            position_mapping = {}
+            for i, col in enumerate(expected_columns):
+                if i < len(df.columns):
+                    position_mapping[df.columns[i]] = col
 
-        df = df.rename(columns=column_mapping)
+            df = df.rename(columns=position_mapping)
 
         # Fill missing optional columns with empty strings
-        for col in expected_columns:
+        required_columns = ["Name", "Gender", "Age", "Weight"]
+        optional_columns = ["Club", "Trainer", "Record"]
+        for col in required_columns + optional_columns:
             if col not in df.columns:
-                df[col] = ""
+                df[col] = "" if col in optional_columns else None
 
         return validate_fighter_dataframe(df)
 
