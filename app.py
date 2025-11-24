@@ -5,6 +5,7 @@ import pandas as pd
 from utils.data_loader import validate_excel_file, get_weight_class
 from utils.pairing import pair_fighters
 from utils.pdf_gen import generate_excel_matches, generate_pdf_bout_sheets
+from utils.auth import require_auth, logout, get_current_user
 
 # Translation dictionaries
 translations = {
@@ -117,7 +118,10 @@ def t(key):
     return translations[lang].get(key, key)
 
 
-# Language selector in sidebar
+# Require authentication
+require_auth()
+
+# Language selector and user info in sidebar
 with st.sidebar:
     st.header(t("language"))
     lang = st.selectbox(
@@ -128,6 +132,13 @@ with st.sidebar:
     if lang != st.session_state.get("language", "en"):
         st.session_state["language"] = lang
         st.rerun()
+
+    st.divider()
+    user = get_current_user()
+    if user:
+        st.write(f"👤 {user.email}")
+        if st.button("Logout"):
+            logout()
 
 st.title(t("title"))
 
@@ -140,8 +151,14 @@ if "unmatched" not in st.session_state:
     st.session_state["unmatched"] = pd.DataFrame()
 
 # Create tabs
-tab1, tab2, tab3, tab4 = st.tabs(
-    [t("tab_data"), t("tab_generate"), t("tab_manual"), t("tab_export")]
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    [
+        t("tab_data"),
+        t("tab_generate"),
+        t("tab_manual"),
+        t("tab_export"),
+        "👥 Manage Fighters",
+    ]
 )
 
 with tab1:
@@ -329,3 +346,26 @@ with tab4:
             # Weight class distribution
             wc_dist = matches_df["Weight_Class"].value_counts()
             st.bar_chart(wc_dist)
+
+with tab5:
+    st.header("👥 Manage Fighters")
+
+    st.info(
+        "Database integration coming soon! This tab will allow CRUD operations for fighters and clubs."
+    )
+
+    # Placeholder for future database integration
+    st.write("**Planned Features:**")
+    st.write("- Add/Edit/Delete fighters")
+    st.write("- Manage clubs and gyms")
+    st.write("- Bulk import/export from database")
+    st.write("- Archive inactive fighters")
+
+    # Show current data if available
+    if not st.session_state["fighters_df"].empty:
+        st.subheader("Current Fighter Data (from uploaded file)")
+        st.dataframe(st.session_state["fighters_df"])
+    else:
+        st.warning(
+            "No fighter data available. Upload data in the Data Upload tab first."
+        )

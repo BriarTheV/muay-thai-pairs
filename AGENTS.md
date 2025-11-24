@@ -33,6 +33,28 @@ When writing logic or tests, adhere to these constraints:
 *   `utils/data_loader.py`: Excel validation and cleaning.
 *   `utils/pdf_gen.py`: FPDF layout generation.
 
+## 🔐 Authentication (Supabase)
+*   **Library**: `supabase` (Python client).
+*   **Pattern**:
+    *   Do NOT use `streamlit-authenticator` (it relies on hardcoded hashes or complex cookie management).
+    *   Use **Supabase Auth** API directly.
+    *   **Code Snippet Structure**:
+        ```
+        from supabase import create_client
+        
+        # Initialize once
+        supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+
+        def login(email, password):
+            try:
+                response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                st.session_state['user'] = response.user
+                st.experimental_rerun()
+            except Exception as e:
+                st.error(f"Login failed: {e}")
+        ```
+    *   **UI Flow**: If `st.session_state.get('user')` is None, stop execution and render ONLY the login inputs.
+
 ## ⚠️ Common Pitfalls to Avoid
 *   **Do not** use global variables; use `st.session_state`.
 *   **Do not** lose manual edits when the user changes a filter. Ensure `st.data_editor` writes back to state.

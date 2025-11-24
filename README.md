@@ -22,7 +22,9 @@ A Streamlit-based web application designed to automate and manage the creation o
 | **I/O** | OpenPyXL | Reading/Writing Excel files |
 | **Reporting** | FPDF / ReportLab | Generating PDF bout sheets |
 | **Deployment** | Docker | Containerization for easy hosting |
-
+| **Database**  | PostgreSQL (Supabase) | Persistent data storage    |
+| **Auth**      | Supabase Auth         | User management & Security |
+| **UI**        | Streamlit             | Frontend interface         |
 
 The app expects an Excel file with at least: `Name`, `Gender`, `Age`, `Weight`, `Club`, `Trainer`, `Record`.
 
