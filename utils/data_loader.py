@@ -107,58 +107,34 @@ def validate_excel_file(
             # Read with headers
             df = pd.read_excel(uploaded_file, engine=engine, header=0)
         else:
-            # Read without headers, assign names
+            # Read without headers
             df = pd.read_excel(uploaded_file, engine=engine, header=None)
 
-            expected_columns = [
-                "Timestamp",
-                "Gender",
-                "Name",
-                "DOB",
-                "Unknown1",
-                "Weight_Range",
-                "Weight_Class",
-                "Class",
-                "Club",
-                "Trainer",
-                "Total_Fights",
-                "Wins",
-            ]
-            if len(df.columns) == len(expected_columns):
-                df.columns = expected_columns
-            else:
-                df.columns = [f"Col{i + 1}" for i in range(len(df.columns))]
-
         if column_mapping:
-            # For data files, map by finding column with matching first row value
+            # Map columns based on whether data_value is a column name or first row value
+            rename_dict = {}
             for data_value, standard_name in column_mapping.items():
-                for col in df.columns:
-                    if str(df.iloc[0, col]) == data_value:
-                        df.columns[col] = standard_name
-                        break
+                if data_value in df.columns:
+                    # Header file: data_value is the column name, direct rename
+                    rename_dict[data_value] = standard_name
+                else:
+                    # Data file: data_value is first row value, find matching column
+                    for col in df.columns:
+                        if str(df.iloc[0, col]) == data_value:
+                            rename_dict[col] = standard_name
+                            break
+            df.rename(columns=rename_dict, inplace=True)
+            # Ensure all column names are strings
+            df.columns = [str(c) for c in df.columns]
+
         else:
-            # Map standard columns for this data format
-            if len(df.columns) == 12:
-                standard_mapping = {
-                    0: "Timestamp",
-                    1: "Gender",
-                    2: "Name",
-                    3: "DOB",
-                    4: "Unknown1",
-                    5: "Weight_Range",
-                    6: "Weight_Class",
-                    7: "Class",
-                    8: "Club",
-                    9: "Trainer",
-                    10: "Total_Fights",
-                    11: "Wins",
-                }
-                df.columns = [
-                    standard_mapping.get(i, f"Col{i + 1}")
-                    for i in range(len(df.columns))
-                ]
-            else:
-                df.columns = [f"Col{i + 1}" for i in range(len(df.columns))]
+            # Use first line from file as column names for data files without mapping
+            if not has_headers:
+                if len(df) > 0:
+                    df.columns = df.iloc[0].astype(str)
+                    df = df[1:].reset_index(drop=True)
+                else:
+                    df.columns = [f"Col{i + 1}" for i in range(len(df.columns))]
 
             # Parse weight categories
             weight_column = "Weight Class" if "Weight Class" in df.columns else "Weight"
