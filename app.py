@@ -225,7 +225,17 @@ with tab1:
                         st.stop()  # Don't proceed with import
 
             # Validate and load data
-            df, error_msg = validate_excel_file(uploaded_file, column_mapping)
+            try:
+                result = validate_excel_file(uploaded_file, column_mapping)
+                if isinstance(result, tuple) and len(result) == 2:
+                    df, error_msg = result
+                else:
+                    df, error_msg = None, "Invalid return from validation function"
+            except Exception as e:
+                df, error_msg = (
+                    None,
+                    f"Unexpected error during file validation: {str(e)}",
+                )
 
             if error_msg:
                 st.error("{}: {}".format(t("error_loading_data"), error_msg))
