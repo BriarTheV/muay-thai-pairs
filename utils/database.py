@@ -66,6 +66,15 @@ def deactivate_fighter(fighter_id: int):
     update_fighter(fighter_id, {"active_status": False})
 
 
+def get_fighter_id_by_name(name: str) -> Optional[int]:
+    """Get fighter ID by name."""
+    supabase = get_supabase_client()
+    response = supabase.table("fighters").select("id").eq("name", name).execute()
+    if response.data:
+        return response.data[0]["id"]
+    return None
+
+
 # Events operations
 def get_events() -> List[Dict]:
     """Get all events."""
@@ -93,17 +102,22 @@ def save_matches(event_id: int, matches_df: pd.DataFrame):
     # Convert DataFrame to match records
     matches_data = []
     for _, match in matches_df.iterrows():
-        matches_data.append(
-            {
-                "event_id": event_id,
-                "fighter_red_id": int(match["Red_ID"]),  # Assuming we have IDs
-                "fighter_blue_id": int(match["Blue_ID"]),
-                "result": None,  # To be filled after event
-            }
-        )
+        red_id = get_fighter_id_by_name(match["Red_Corner"])
+        blue_id = get_fighter_id_by_name(match["Blue_Corner"])
+        if red_id and blue_id:
+            matches_data.append(
+                {
+                    "event_id": event_id,
+                    "fighter_red_id": red_id,
+                    "fighter_blue_id": blue_id,
+                    "result": None,  # To be filled after event
+                }
+            )
 
-    response = supabase.table("matches").insert(matches_data).execute()
-    return response.data
+    if matches_data:
+        response = supabase.table("matches").insert(matches_data).execute()
+        return response.data
+    return []
 
 
 def get_event_matches(event_id: int) -> List[Dict]:
