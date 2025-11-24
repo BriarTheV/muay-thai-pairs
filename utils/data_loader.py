@@ -6,7 +6,7 @@ import re
 
 
 def parse_weight_category(text: str) -> Tuple[float, float]:
-    """Parse weight category from text, supporting Russian notation."""
+    """Parse weight category from text, supporting 'до X' and single numbers."""
     if pd.isna(text) or text == "":
         return (0, 999)  # Default wide range
 
@@ -17,26 +17,6 @@ def parse_weight_category(text: str) -> Tuple[float, float]:
         try:
             max_weight = float(re.search(r"до\s*(\d+(?:\.\d+)?)", text).group(1))
             return (0, max_weight)
-        except Exception:
-            pass
-
-    # Russian "больше" or "более" (over/more than)
-    elif "больше" in text or "более" in text:
-        try:
-            min_weight = float(
-                re.search(r"(?:больше|более)\s*(\d+(?:\.\d+)?)", text).group(1)
-            )
-            return (min_weight, 999)
-        except Exception:
-            pass
-
-    # Range with dash
-    elif "-" in text:
-        try:
-            parts = text.split("-")
-            min_w = float(parts[0].strip())
-            max_w = float(parts[1].strip())
-            return (min_w, max_w)
         except Exception:
             pass
 
