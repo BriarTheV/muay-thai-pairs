@@ -69,6 +69,55 @@ translations = {
         "years": "years",
         "language": "Language",
         "select_language": "Select Language",
+        "gsheets_import": "Google Sheets Import",
+        "gsheets_error": "Google Sheets connection not available. Please install streamlit-gsheets-connection.",
+        "sheet_loaded": "Sheet data loaded successfully!",
+        "raw_preview": "Raw Sheet Data Preview",
+        "column_mapping": "Column Mapping",
+        "map_columns": "Map sheet columns to required fields:",
+        "data_imported": "Data imported and validated successfully!",
+        "no_sheet_data": "No data found in the sheet. Please check the URL and sharing settings.",
+        "gsheets_conn_error": "Error connecting to Google Sheets",
+        "gsheets_help": "Make sure the sheet is publicly accessible or you have proper authentication set up.",
+        "db_tournament": "Database Tournament Selection",
+        "select_fighters": "Select Present Fighters",
+        "staged_fighters": "Staged {count} fighters for pairing!",
+        "select_at_least_one": "Please select at least one fighter.",
+        "no_fighters_club": "No fighters found for selected clubs.",
+        "no_events_db": "No events found in database. Please create events first.",
+        "db_error": "Database error",
+        "supabase_config": "Make sure Supabase is properly configured.",
+        "manage_fighters": "👥 Manage Fighters",
+        "add_fighter": "Add New Fighter",
+        "required_fields": "Please fill in required fields: Name, Gender, Weight",
+        "fighter_added": "Fighter '{name}' added successfully!",
+        "error_add_fighter": "Error adding fighter",
+        "edit_fighters": "Edit Existing Fighters",
+        "edit_details": "Edit fighter details below. Changes are saved automatically.",
+        "error_update_fighter": "Error updating fighter {name}",
+        "updated_fighters": "Updated {count} fighter(s) successfully!",
+        "no_changes": "No changes detected.",
+        "deactivate_fighters": "Deactivate Fighters",
+        "select_deactivate": "Select fighters to deactivate:",
+        "deactivated_fighters": "Deactivated {count} fighter(s)!",
+        "no_active_fighters": "No active fighters to deactivate.",
+        "no_fighters_db": "No fighters found in database. Add fighters using the 'Add Fighter' tab.",
+        "manage_clubs": "Manage Clubs",
+        "add_club": "Add New Club",
+        "club_added": "Club '{name}' added successfully!",
+        "error_add_club": "Error adding club",
+        "existing_clubs": "Existing Clubs",
+        "no_clubs": "No clubs found. Add your first club above.",
+        "db_conn_error": "Database connection error",
+        "current_fighter_data": "Current Fighter Data (from uploaded file)",
+        "no_fighter_data": "No fighter data available. Upload data in the Data Upload tab first.",
+        "save_history": "💾 Save to Database History",
+        "create_event": "Create New Event",
+        "event_created": "Event '{name}' created and matches saved successfully!",
+        "error_create_event": "Error creating event",
+        "save_matches_event": "Save Matches to Selected Event",
+        "matches_saved": "Matches saved to event '{name}' successfully!",
+        "error_save_matches": "Error saving matches",
     },
     "ru": {
         "title": "🥊 Сопоставитель бойцов Муай Тай",
@@ -119,13 +168,62 @@ translations = {
         "years": "лет",
         "language": "Язык",
         "select_language": "Выберите язык",
+        "gsheets_import": "Импорт из Google Sheets",
+        "gsheets_error": "Подключение к Google Sheets недоступно. Установите streamlit-gsheets-connection.",
+        "sheet_loaded": "Данные из таблицы загружены успешно!",
+        "raw_preview": "Предварительный просмотр сырых данных",
+        "column_mapping": "Сопоставление столбцов",
+        "map_columns": "Сопоставьте столбцы таблицы с требуемыми полями:",
+        "data_imported": "Данные импортированы и проверены успешно!",
+        "no_sheet_data": "Данные в таблице не найдены. Проверьте URL и настройки доступа.",
+        "gsheets_conn_error": "Ошибка подключения к Google Sheets",
+        "gsheets_help": "Убедитесь, что таблица общедоступна или настроена аутентификация.",
+        "db_tournament": "Выбор турнира из базы данных",
+        "select_fighters": "Выберите присутствующих бойцов",
+        "staged_fighters": "Подготовлено {count} бойцов для генерации пар!",
+        "select_at_least_one": "Пожалуйста, выберите хотя бы одного бойца.",
+        "no_fighters_club": "Бойцы для выбранных клубов не найдены.",
+        "no_events_db": "События в базе данных не найдены. Создайте события сначала.",
+        "db_error": "Ошибка базы данных",
+        "supabase_config": "Убедитесь, что Supabase настроен правильно.",
+        "manage_fighters": "👥 Управление бойцами",
+        "add_fighter": "Добавить нового бойца",
+        "required_fields": "Заполните обязательные поля: Имя, Пол, Вес",
+        "fighter_added": "Боец '{name}' добавлен успешно!",
+        "error_add_fighter": "Ошибка добавления бойца",
+        "edit_fighters": "Редактировать бойцов",
+        "edit_details": "Редактируйте данные бойцов ниже. Изменения сохраняются автоматически.",
+        "error_update_fighter": "Ошибка обновления бойца {name}",
+        "updated_fighters": "Обновлено {count} бойцов успешно!",
+        "no_changes": "Изменения не обнаружены.",
+        "deactivate_fighters": "Деактивировать бойцов",
+        "select_deactivate": "Выберите бойцов для деактивации:",
+        "deactivated_fighters": "Деактивировано {count} бойцов!",
+        "no_active_fighters": "Нет активных бойцов для деактивации.",
+        "no_fighters_db": "Бойцы в базе данных не найдены. Добавьте бойцов на вкладке 'Добавить бойца'.",
+        "manage_clubs": "Управление клубами",
+        "add_club": "Добавить новый клуб",
+        "club_added": "Клуб '{name}' добавлен успешно!",
+        "error_add_club": "Ошибка добавления клуба",
+        "existing_clubs": "Существующие клубы",
+        "no_clubs": "Клубы не найдены. Добавьте свой первый клуб выше.",
+        "db_conn_error": "Ошибка подключения к базе данных",
+        "current_fighter_data": "Текущие данные бойцов (из загруженного файла)",
+        "no_fighter_data": "Данные бойцов недоступны. Загрузите данные на вкладке Загрузка данных.",
+        "save_history": "💾 Сохранить в историю базы данных",
+        "create_event": "Создать новое событие",
+        "event_created": "Событие '{name}' создано и матчи сохранены успешно!",
+        "error_create_event": "Ошибка создания события",
+        "save_matches_event": "Сохранить матчи в выбранное событие",
+        "matches_saved": "Матчи сохранены в событие '{name}' успешно!",
+        "error_save_matches": "Ошибка сохранения матчей",
     },
 }
 
 
 def t(key):
     """Translation function"""
-    lang = st.session_state.get("language", "en")
+    lang = st.session_state.get("language", "ru")
     return translations[lang].get(key, key)
 
 
@@ -137,8 +235,8 @@ with st.sidebar:
     st.header(t("language"))
     lang = st.selectbox(
         t("select_language"),
-        ["en", "ru"],
-        index=0 if st.session_state.get("language", "en") == "en" else 1,
+        ["ru", "en"],
+        index=0 if st.session_state.get("language", "ru") == "ru" else 1,
     )
     if lang != st.session_state.get("language", "en"):
         st.session_state["language"] = lang
@@ -213,12 +311,10 @@ with tab1:
                 st.write(f"{t('clubs')}: {df['Club'].nunique()} unique clubs")
 
     elif ingestion_mode == "Google Sheets":
-        st.subheader("Google Sheets Import")
+        st.subheader(t("gsheets_import"))
 
         if GSheetsConnection is None:
-            st.error(
-                "Google Sheets connection not available. Please install streamlit-gsheets-connection."
-            )
+            st.error(t("gsheets_error"))
             return
 
         # Sheet URL input
@@ -237,15 +333,15 @@ with tab1:
                 df_raw = conn.read(spreadsheet=sheet_url)
 
                 if not df_raw.empty:
-                    st.success("Sheet data loaded successfully!")
+                    st.success(t("sheet_loaded"))
 
                     # Show raw data preview
-                    st.subheader("Raw Sheet Data Preview")
+                    st.subheader(t("raw_preview"))
                     st.dataframe(df_raw.head(10))
 
                     # Column mapping
-                    st.subheader("Column Mapping")
-                    st.write("Map sheet columns to required fields:")
+                    st.subheader(t("column_mapping"))
+                    st.write(t("map_columns"))
 
                     available_columns = list(df_raw.columns)
 
@@ -326,22 +422,18 @@ with tab1:
                             # Store in session state
                             st.session_state["fighters_df"] = df
 
-                            st.success("Data imported and validated successfully!")
+                            st.success(t("data_imported"))
                             st.dataframe(df)
 
                 else:
-                    st.warning(
-                        "No data found in the sheet. Please check the URL and sharing settings."
-                    )
+                    st.warning(t("no_sheet_data"))
 
             except Exception as e:
-                st.error(f"Error connecting to Google Sheets: {str(e)}")
-                st.info(
-                    "Make sure the sheet is publicly accessible or you have proper authentication set up."
-                )
+                st.error(f"{t('gsheets_conn_error')}: {str(e)}")
+                st.info(t("gsheets_help"))
 
     elif ingestion_mode == "Database Tournament":
-        st.subheader("Database Tournament Selection")
+        st.subheader(t("db_tournament"))
 
         try:
             from utils.database import get_events, get_fighters
@@ -378,7 +470,7 @@ with tab1:
                     ]
 
                     if filtered_fighters:
-                        st.subheader("Select Present Fighters")
+                        st.subheader(t("select_fighters"))
 
                         # Create checkboxes for fighter selection
                         selected_fighter_ids = []
@@ -426,19 +518,21 @@ with tab1:
                                 st.session_state["fighters_df"] = df
 
                                 st.success(
-                                    f"Staged {len(selected_fighter_ids)} fighters for pairing!"
+                                    t("staged_fighters").format(
+                                        count=len(selected_fighter_ids)
+                                    )
                                 )
                                 st.dataframe(df)
                             else:
-                                st.warning("Please select at least one fighter.")
+                                st.warning(t("select_at_least_one"))
                     else:
-                        st.warning("No fighters found for selected clubs.")
+                        st.warning(t("no_fighters_club"))
             else:
-                st.info("No events found in database. Please create events first.")
+                st.info(t("no_events_db"))
 
         except Exception as e:
-            st.error(f"Database error: {str(e)}")
-            st.info("Make sure Supabase is properly configured.")
+            st.error(f"{t('db_error')}: {str(e)}")
+            st.info(t("supabase_config"))
 
     if uploaded_file is not None:
         # Validate and load data
@@ -583,7 +677,7 @@ with tab4:
 
         # Save to Database History
         st.divider()
-        st.subheader("💾 Save to Database History")
+        st.subheader(t("save_history"))
 
         try:
             from utils.database import get_events, add_event, save_matches
@@ -602,7 +696,7 @@ with tab4:
 
             if selected_event_option == "Create New Event...":
                 with st.form("create_event_form"):
-                    st.write("Create New Event")
+                    st.write(t("create_event"))
                     new_event_name = st.text_input("Event Name")
                     new_event_date = st.date_input("Event Date")
                     new_event_location = st.text_input("Location (optional)")
@@ -620,12 +714,10 @@ with tab4:
 
                             # Save matches
                             save_matches(event_id, matches_df)
-                            st.success(
-                                f"Event '{new_event_name}' created and matches saved successfully!"
-                            )
+                            st.success(t("event_created").format(name=new_event_name))
                             st.rerun()
                         except Exception as e:
-                            st.error(f"Error creating event: {str(e)}")
+                            st.error(f"{t('error_create_event')}: {str(e)}")
             else:
                 # Existing event selected
                 event_name_selected = selected_event_option.split(" (")[0]
@@ -633,20 +725,16 @@ with tab4:
                     (e for e in events if e["name"] == event_name_selected), None
                 )
 
-                if event and st.button(
-                    "Save Matches to Selected Event", type="primary"
-                ):
+                if event and st.button(t("save_matches_event"), type="primary"):
                     try:
                         save_matches(event["id"], matches_df)
-                        st.success(
-                            f"Matches saved to event '{event_name_selected}' successfully!"
-                        )
+                        st.success(t("matches_saved").format(name=event_name_selected))
                     except Exception as e:
-                        st.error(f"Error saving matches: {str(e)}")
+                        st.error(f"{t('error_save_matches')}: {str(e)}")
 
         except Exception as e:
-            st.error(f"Database error: {str(e)}")
-            st.info("Make sure Supabase is properly configured.")
+            st.error(f"{t('db_error')}: {str(e)}")
+            st.info(t("supabase_config"))
 
         # Statistics panel
         st.subheader(t("stats_header"))
@@ -686,7 +774,7 @@ with tab4:
             st.bar_chart(wc_dist)
 
 with tab5:
-    st.header("👥 Manage Fighters")
+    st.header(t("manage_fighters"))
 
     try:
         from utils.database import (
@@ -704,7 +792,7 @@ with tab5:
         )
 
         with manage_tab1:
-            st.subheader("Add New Fighter")
+            st.subheader(t("add_fighter"))
 
             with st.form("add_fighter_form"):
                 col1, col2 = st.columns(2)
@@ -739,7 +827,7 @@ with tab5:
 
                 if submitted:
                     if not name or not gender or not weight:
-                        st.error("Please fill in required fields: Name, Gender, Weight")
+                        st.error(t("required_fields"))
                     else:
                         fighter_data = {
                             "name": name,
@@ -761,13 +849,13 @@ with tab5:
 
                         try:
                             new_fighter = add_fighter(fighter_data)
-                            st.success(f"Fighter '{name}' added successfully!")
+                            st.success(t("fighter_added").format(name=name))
                             st.rerun()
                         except Exception as e:
-                            st.error(f"Error adding fighter: {str(e)}")
+                            st.error(f"{t('error_add_fighter')}: {str(e)}")
 
         with manage_tab2:
-            st.subheader("Edit Existing Fighters")
+            st.subheader(t("edit_fighters"))
 
             fighters = get_fighters(active_only=False)
             if fighters:
@@ -790,7 +878,7 @@ with tab5:
                     ]
                 )
 
-                st.write("Edit fighter details below. Changes are saved automatically.")
+                st.write(t("edit_details"))
 
                 edited_df = st.data_editor(
                     fighters_df,
@@ -855,24 +943,27 @@ with tab5:
                                     changes_made += 1
                                 except Exception as e:
                                     st.error(
-                                        f"Error updating fighter {row['Name']}: {str(e)}"
+                                        t("error_update_fighter").format(
+                                            name=row["Name"]
+                                        )
+                                        + f": {str(e)}"
                                     )
 
                     if changes_made > 0:
-                        st.success(f"Updated {changes_made} fighter(s) successfully!")
+                        st.success(t("updated_fighters").format(count=changes_made))
                         st.rerun()
                     else:
-                        st.info("No changes detected.")
+                        st.info(t("no_changes"))
 
                 # Deactivate fighters section
                 st.divider()
-                st.subheader("Deactivate Fighters")
+                st.subheader(t("deactivate_fighters"))
 
                 active_fighters = [f for f in fighters if f.get("active_status", True)]
                 if active_fighters:
                     fighter_names = [f["name"] for f in active_fighters]
                     selected_to_deactivate = st.multiselect(
-                        "Select fighters to deactivate:",
+                        t("select_deactivate"),
                         fighter_names,
                         help="Deactivated fighters won't appear in tournament selections",
                     )
@@ -891,23 +982,25 @@ with tab5:
                                     st.error(f"Error deactivating {name}: {str(e)}")
 
                         if deactivated_count > 0:
-                            st.success(f"Deactivated {deactivated_count} fighter(s)!")
+                            st.success(
+                                t("deactivated_fighters").format(
+                                    count=deactivated_count
+                                )
+                            )
                             st.rerun()
                 else:
-                    st.info("No active fighters to deactivate.")
+                    st.info(t("no_active_fighters"))
             else:
-                st.info(
-                    "No fighters found in database. Add fighters using the 'Add Fighter' tab."
-                )
+                st.info(t("no_fighters_db"))
 
         with manage_tab3:
-            st.subheader("Manage Clubs")
+            st.subheader(t("manage_clubs"))
 
             clubs = get_clubs()
 
             # Add new club
             with st.form("add_club_form"):
-                st.write("Add New Club")
+                st.write(t("add_club"))
                 club_name = st.text_input("Club Name", key="club_name")
                 contact_info = st.text_area(
                     "Contact Info (optional)", key="club_contact"
@@ -921,14 +1014,14 @@ with tab5:
                             club_name,
                             {"contact": contact_info} if contact_info else None,
                         )
-                        st.success(f"Club '{club_name}' added successfully!")
+                        st.success(t("club_added").format(name=club_name))
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Error adding club: {str(e)}")
+                        st.error(f"{t('error_add_club')}: {str(e)}")
 
             # List existing clubs
             if clubs:
-                st.subheader("Existing Clubs")
+                st.subheader(t("existing_clubs"))
                 clubs_df = pd.DataFrame(
                     [
                         {
@@ -941,17 +1034,15 @@ with tab5:
                 )
                 st.dataframe(clubs_df)
             else:
-                st.info("No clubs found. Add your first club above.")
+                st.info(t("no_clubs"))
 
     except Exception as e:
-        st.error(f"Database connection error: {str(e)}")
-        st.info("Make sure Supabase is properly configured in secrets.toml")
+        st.error(f"{t('db_conn_error')}: {str(e)}")
+        st.info(t("supabase_config"))
 
         # Fallback: show current session data
         if not st.session_state["fighters_df"].empty:
-            st.subheader("Current Fighter Data (from uploaded file)")
+            st.subheader(t("current_fighter_data"))
             st.dataframe(st.session_state["fighters_df"])
         else:
-            st.warning(
-                "No fighter data available. Upload data in the Data Upload tab first."
-            )
+            st.warning(t("no_fighter_data"))
