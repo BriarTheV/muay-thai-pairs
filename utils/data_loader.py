@@ -71,7 +71,7 @@ def validate_excel_file(
         Tuple of (DataFrame or None, error message)
     """
     if uploaded_file is None:
-        return None, "No file uploaded"
+        return (None, "No file uploaded")
 
     try:
         # Determine file type and appropriate engine
@@ -81,7 +81,7 @@ def validate_excel_file(
         elif file_name.endswith(".ods"):
             engine = "odf"
         else:
-            return None, "Unsupported file format. Please use .xlsx or .ods files."
+            return (None, "Unsupported file format. Please use .xlsx or .ods files.")
 
         # Detect if file has headers
         temp_df = pd.read_excel(uploaded_file, engine=engine, header=None, nrows=1)
@@ -156,7 +156,7 @@ def validate_excel_file(
             return validate_fighter_dataframe(df)
 
     except Exception as e:
-        return None, f"Error validating data: {str(e)}"
+        return (None, f"Error validating data: {str(e)}")
 
 
 def validate_fighter_dataframe(df: pd.DataFrame) -> Tuple[Optional[pd.DataFrame], str]:
@@ -173,7 +173,7 @@ def validate_fighter_dataframe(df: pd.DataFrame) -> Tuple[Optional[pd.DataFrame]
     """
     # Check for empty data
     if df is None or df.empty:
-        return None, "No data provided"
+        return (None, "No data provided")
 
     try:
         # Validate and convert Age column
@@ -240,7 +240,7 @@ def validate_fighter_dataframe(df: pd.DataFrame) -> Tuple[Optional[pd.DataFrame]
 
         # Validate required Name field
         if "Name" not in df.columns:
-            return None, "Required 'Name' column is missing"
+            return (None, "Required 'Name' column is missing")
 
         # Remove rows with missing or empty names
         df = df.dropna(subset=["Name"])
@@ -248,18 +248,12 @@ def validate_fighter_dataframe(df: pd.DataFrame) -> Tuple[Optional[pd.DataFrame]
         df = df[df["Name"] != ""]
 
         if df.empty:
-            return None, "No valid fighter data found after cleaning"
+            return (None, "No valid fighter data found after cleaning")
 
-        # Ensure all required columns exist
-        required_columns = ["Name", "Gender", "Age"]
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return None, f"Missing required columns: {', '.join(missing_columns)}"
-
-        return df, ""
+        return (df, "")
 
     except Exception as e:
-        return None, f"Error validating data: {str(e)}"
+        return (None, f"Error validating data: {str(e)}")
 
 
 def get_weight_class(weight: float) -> str:
