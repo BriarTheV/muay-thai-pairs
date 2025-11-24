@@ -130,23 +130,35 @@ def validate_excel_file(
                 df.columns = [f"Col{i + 1}" for i in range(len(df.columns))]
 
         if column_mapping:
-            # Use provided mapping
-            df = df.rename(columns=column_mapping)
+            # For data files, map by finding column with matching first row value
+            for data_value, standard_name in column_mapping.items():
+                for col in df.columns:
+                    if str(df.iloc[0, col]) == data_value:
+                        df.columns[col] = standard_name
+                        break
         else:
             # Map standard columns for this data format
-            standard_mapping = {
-                "Name": "Name",
-                "Gender": "Gender",
-                "DOB": "DOB",
-                "Weight_Class": "Weight Class",
-                "Club": "Club",
-                "Trainer": "Trainer",
-                "Total_Fights": "Record",
-                "Wins": "Wins",
-                "Losses": "Losses",
-                "Class": "Class",
-            }
-            df = df.rename(columns=standard_mapping)
+            if len(df.columns) == 12:
+                standard_mapping = {
+                    0: "Timestamp",
+                    1: "Gender",
+                    2: "Name",
+                    3: "DOB",
+                    4: "Unknown1",
+                    5: "Weight_Range",
+                    6: "Weight_Class",
+                    7: "Class",
+                    8: "Club",
+                    9: "Trainer",
+                    10: "Total_Fights",
+                    11: "Wins",
+                }
+                df.columns = [
+                    standard_mapping.get(i, f"Col{i + 1}")
+                    for i in range(len(df.columns))
+                ]
+            else:
+                df.columns = [f"Col{i + 1}" for i in range(len(df.columns))]
 
             # Parse weight categories
             weight_column = "Weight Class" if "Weight Class" in df.columns else "Weight"

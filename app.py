@@ -157,27 +157,8 @@ with tab1:
                         ).columns
                     ]
                 else:
-                    expected_columns = [
-                        "Timestamp",
-                        "Gender",
-                        "Name",
-                        "DOB",
-                        "Unknown1",
-                        "Weight_Range",
-                        "Weight_Class",
-                        "Class",
-                        "Club",
-                        "Trainer",
-                        "Total_Fights",
-                        "Wins",
-                    ]
-                    num_cols = len(
-                        pd.read_excel(uploaded_file, nrows=0, header=None).columns
-                    )
-                    if num_cols == len(expected_columns):
-                        available_columns = expected_columns
-                    else:
-                        available_columns = [f"Col{i + 1}" for i in range(num_cols)]
+                    # For data files, show actual first row values
+                    available_columns = list(temp_df.iloc[0].astype(str))
                 if len(available_columns) < 4:
                     st.error(
                         t("error_loading_data")
