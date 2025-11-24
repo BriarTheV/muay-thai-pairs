@@ -128,25 +128,56 @@ with tab1:
                 st.write(t("map_columns"))
 
                 # Get available columns
-                temp_cols = pd.read_excel(uploaded_file, nrows=0, header=None).columns
-                expected_columns = [
-                    "Timestamp",
-                    "Gender",
-                    "Name",
-                    "DOB",
-                    "Unknown1",
-                    "Weight_Range",
-                    "Weight_Class",
-                    "Class",
-                    "Club",
-                    "Trainer",
-                    "Total_Fights",
-                    "Wins",
+                # Detect headers and get available columns
+                temp_df = pd.read_excel(uploaded_file, header=None, nrows=1)
+                first_row = temp_df.iloc[0].astype(str).str.lower()
+                header_keywords = [
+                    "name",
+                    "имя",
+                    "gender",
+                    "пол",
+                    "вес",
+                    "weight",
+                    "age",
+                    "возраст",
+                    "club",
+                    "клуб",
                 ]
-                if len(temp_cols) == len(expected_columns):
-                    available_columns = expected_columns
+
+                has_headers = any(
+                    any(keyword in cell for keyword in header_keywords)
+                    for cell in first_row
+                )
+
+                if has_headers:
+                    available_columns = [
+                        str(col)
+                        for col in pd.read_excel(
+                            uploaded_file, nrows=0, header=0
+                        ).columns
+                    ]
                 else:
-                    available_columns = [f"Col{i + 1}" for i in range(len(temp_cols))]
+                    expected_columns = [
+                        "Timestamp",
+                        "Gender",
+                        "Name",
+                        "DOB",
+                        "Unknown1",
+                        "Weight_Range",
+                        "Weight_Class",
+                        "Class",
+                        "Club",
+                        "Trainer",
+                        "Total_Fights",
+                        "Wins",
+                    ]
+                    num_cols = len(
+                        pd.read_excel(uploaded_file, nrows=0, header=None).columns
+                    )
+                    if num_cols == len(expected_columns):
+                        available_columns = expected_columns
+                    else:
+                        available_columns = [f"Col{i + 1}" for i in range(num_cols)]
                 if len(available_columns) < 4:
                     st.error(
                         t("error_loading_data")

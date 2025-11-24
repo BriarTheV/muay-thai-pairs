@@ -83,28 +83,51 @@ def validate_excel_file(
         else:
             return None, "Unsupported file format. Please use .xlsx or .ods files."
 
-        # Read spreadsheet file
-        df = pd.read_excel(uploaded_file, engine=engine, header=None)
-
-        # Assign column names based on expected structure
-        expected_columns = [
-            "Timestamp",
-            "Gender",
-            "Name",
-            "DOB",
-            "Unknown1",
-            "Weight_Range",
-            "Weight_Class",
-            "Class",
-            "Club",
-            "Trainer",
-            "Total_Fights",
-            "Wins",
+        # Detect if file has headers
+        temp_df = pd.read_excel(uploaded_file, engine=engine, header=None, nrows=1)
+        first_row = temp_df.iloc[0].astype(str).str.lower()
+        header_keywords = [
+            "name",
+            "имя",
+            "gender",
+            "пол",
+            "вес",
+            "weight",
+            "age",
+            "возраст",
+            "club",
+            "клуб",
         ]
-        if len(df.columns) == len(expected_columns):
-            df.columns = expected_columns
+
+        has_headers = any(
+            any(keyword in cell for keyword in header_keywords) for cell in first_row
+        )
+
+        if has_headers:
+            # Read with headers
+            df = pd.read_excel(uploaded_file, engine=engine, header=0)
         else:
-            df.columns = [f"Col{i + 1}" for i in range(len(df.columns))]
+            # Read without headers, assign names
+            df = pd.read_excel(uploaded_file, engine=engine, header=None)
+
+            expected_columns = [
+                "Timestamp",
+                "Gender",
+                "Name",
+                "DOB",
+                "Unknown1",
+                "Weight_Range",
+                "Weight_Class",
+                "Class",
+                "Club",
+                "Trainer",
+                "Total_Fights",
+                "Wins",
+            ]
+            if len(df.columns) == len(expected_columns):
+                df.columns = expected_columns
+            else:
+                df.columns = [f"Col{i + 1}" for i in range(len(df.columns))]
 
         # Calculate losses if columns exist
         if "Total_Fights" in df.columns and "Wins" in df.columns:
