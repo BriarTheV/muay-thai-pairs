@@ -16,11 +16,13 @@ class Fighter:
     name: str
     gender: str
     age: int
-    weight: float
+    weight_min: float
+    weight_max: float
     club: str
     trainer: str
     record: int
     weight_class: str
+    class_level: Optional[str] = None
     dob: Optional[str] = None
 
 
@@ -33,11 +35,13 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
             name=row["Name"],
             gender=row["Gender"],
             age=int(row["Age"]),
-            weight=float(row["Weight"]),
+            weight_min=float(row.get("Weight_Min", row.get("Weight", 0))),
+            weight_max=float(row.get("Weight_Max", row.get("Weight", 999))),
             club=row["Club"],
             trainer=row["Trainer"],
             record=int(row["Record"]),
             weight_class=row["Weight Class"],
+            class_level=row.get("Class"),
             dob=str(row.get("DOB")) if pd.notna(row.get("DOB")) else None,
         )
         fighters.append(fighter)
@@ -58,9 +62,13 @@ def is_valid_pair(f1: Fighter, f2: Fighter) -> bool:
     if f1.trainer and f2.trainer and f1.trainer == f2.trainer:
         return False
 
-    # Weight difference within tolerance
-    weight_diff = abs(f1.weight - f2.weight)
-    if weight_diff > WEIGHT_TOLERANCE:
+    # Weight compatibility check
+    # For single weights (min==max), use tolerance
+    if f1.weight_min == f1.weight_max and f2.weight_min == f2.weight_max:
+        if abs(f1.weight_min - f2.weight_min) > WEIGHT_TOLERANCE:
+            return False
+    # For ranges, check overlap
+    elif f1.weight_max < f2.weight_min or f2.weight_max < f1.weight_min:
         return False
 
     return True
@@ -70,9 +78,17 @@ def calculate_pair_score(f1: Fighter, f2: Fighter) -> float:
     """Calculate soft score for pair quality (lower is better)."""
     score = 0
 
-    # Weight difference penalty
-    weight_diff = abs(f1.weight - f2.weight)
-    score += weight_diff * 10  # Penalty per kg difference
+    # Weight range overlap penalty
+    # Calculate overlap quality (prefer tighter overlaps)
+    overlap_start = max(f1.weight_min, f2.weight_min)
+    overlap_end = min(f1.weight_max, f2.weight_max)
+    if overlap_end > overlap_start:
+        overlap_size = overlap_end - overlap_start
+        # Smaller overlap is better (more precise matching)
+        score += (10 - overlap_size) * 2
+    else:
+        # No overlap (shouldn't happen due to is_valid_pair, but just in case)
+        score += 50
 
     # Age difference penalty
     age_diff = abs(f1.age - f2.age)
@@ -140,15 +156,16 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
                     "Match_ID": match_id,
                     "Red_Corner": f1.name,
                     "Red_Club": f1.club,
-                    "Red_Weight": f1.weight,
+                    "Red_Weight": f"{f1.weight_min}-{f1.weight_max}",
                     "Red_Age": f1.age,
                     "Red_Record": f1.record,
                     "Blue_Corner": best_pair.name,
                     "Blue_Club": best_pair.club,
-                    "Blue_Weight": best_pair.weight,
+                    "Blue_Weight": f"{best_pair.weight_min}-{best_pair.weight_max}",
                     "Blue_Age": best_pair.age,
                     "Blue_Record": best_pair.record,
-                    "Weight_Diff": abs(f1.weight - best_pair.weight),
+                    "Weight_Overlap": min(f1.weight_max, best_pair.weight_max)
+                    - max(f1.weight_min, best_pair.weight_min),
                     "Age_Diff": abs(f1.age - best_pair.age),
                     "Gender": gender,
                     "Weight_Class": weight_class,
@@ -170,7 +187,7 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
                 "Name": f.name,
                 "Gender": f.gender,
                 "Age": f.age,
-                "Weight": f.weight,
+                "Weight": f"{f.weight_min}-{f.weight_max}",
                 "Club": f.club,
                 "Trainer": f.trainer,
                 "Record": f.record,

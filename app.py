@@ -22,6 +22,27 @@ except ImportError:
 from utils.auth import logout, get_current_user
 from utils.translations import translations
 
+
+def find_best_column(available_columns: list, field_type: str) -> int:
+    """Find the best matching column index based on field type."""
+    keywords_map = {
+        "name": ["name", "имя", "фамилия", "спортсмен"],
+        "gender": ["gender", "пол", "муж", "жен"],
+        "weight": ["weight", "вес", "категория"],
+        "age": ["age", "возраст", "лет"],
+        "club": ["club", "клуб", "город"],
+        "trainer": ["trainer", "тренер"],
+        "record": ["record", "боев", "побед"],
+        "class": ["class", "класс", "разряд"],
+    }
+    keywords = keywords_map.get(field_type, [])
+    for i, col in enumerate(available_columns):
+        col_str = str(col).lower()
+        if any(keyword.lower() in col_str for keyword in keywords):
+            return i
+    return None  # No match found
+
+
 # Translation function
 
 
@@ -121,25 +142,19 @@ with tab1:
                         name_col = st.selectbox(
                             t("name_column"),
                             available_columns,
-                            index=0
-                            if any(
-                                "name" in str(col).lower()
-                                or "фамилия" in str(col).lower()
-                                for col in available_columns[:1]
-                            )
-                            else None,
+                            index=find_best_column(available_columns, "name"),
                         )
                     with col2:
                         gender_col = st.selectbox(
                             t("gender_column"),
                             available_columns,
-                            index=1 if len(available_columns) > 1 else None,
+                            index=find_best_column(available_columns, "gender"),
                         )
                     with col3:
                         weight_col = st.selectbox(
                             t("weight_column"),
                             available_columns,
-                            index=2 if len(available_columns) > 2 else None,
+                            index=find_best_column(available_columns, "weight"),
                         )
 
                     # Optional columns
@@ -801,6 +816,12 @@ with tab5:
                     value=0,
                     key="add_wins",
                 )
+                fighter_class = st.selectbox(
+                    t("fighter_class"),
+                    ["", "A", "B", "C"],
+                    index=0,
+                    key="add_class",
+                )
 
                 submitted = st.form_submit_button(t("add_fighter_button"))
 
@@ -813,7 +834,8 @@ with tab5:
                             "gender": gender,
                             "dob": str(dob) if dob else None,
                             "age": age,
-                            "weight": weight,
+                            "weight_min": weight,
+                            "weight_max": weight,
                             "weight_class": get_weight_class(weight),
                             "club_id": next(
                                 (c["id"] for c in get_clubs() if c["name"] == club),
@@ -823,8 +845,8 @@ with tab5:
                             else None,
                             "trainer": trainer or "",
                             "record_w": record,
-                            "record_l": max(0, record - wins),  # Calculate losses
-                            "active_status": True,
+                            "record_l": wins,
+                            "class": fighter_class or None,
                         }
 
                         try:

@@ -2,6 +2,51 @@
 
 import pandas as pd
 from typing import Optional, Tuple, Dict
+import re
+
+
+def parse_weight_category(text: str) -> Tuple[float, float]:
+    """Parse weight category from text, supporting Russian notation."""
+    if pd.isna(text) or text == "":
+        return (0, 999)  # Default wide range
+
+    text = str(text).lower().strip()
+
+    # Russian "до" (under/up to)
+    if "до" in text:
+        try:
+            max_weight = float(re.search(r"до\s*(\d+(?:\.\d+)?)", text).group(1))
+            return (0, max_weight)
+        except Exception:
+            pass
+
+    # Russian "больше" or "более" (over/more than)
+    elif "больше" in text or "более" in text:
+        try:
+            min_weight = float(
+                re.search(r"(?:больше|более)\s*(\d+(?:\.\d+)?)", text).group(1)
+            )
+            return (min_weight, 999)
+        except Exception:
+            pass
+
+    # Range with dash
+    elif "-" in text:
+        try:
+            parts = text.split("-")
+            min_w = float(parts[0].strip())
+            max_w = float(parts[1].strip())
+            return (min_w, max_w)
+        except Exception:
+            pass
+
+    # Single weight
+    try:
+        weight = float(text)
+        return (weight, weight)
+    except Exception:
+        return (0, 999)  # Fallback
+
 
 EXPECTED_COLUMNS = [
     "Name",
@@ -89,9 +134,14 @@ def validate_excel_file(
 
             df = df.rename(columns=position_mapping)
 
+        # Parse weight categories for standard order
+        if "Weight" in df.columns:
+            df["Weight_Min"] = df["Weight"].apply(lambda x: parse_weight_category(x)[0])
+            df["Weight_Max"] = df["Weight"].apply(lambda x: parse_weight_category(x)[1])
+
         # Fill missing optional columns with empty strings
         required_columns = ["Name", "Gender", "Age", "Weight"]
-        optional_columns = ["Club", "Trainer", "Record"]
+        optional_columns = ["Club", "Trainer", "Record", "Class"]
         for col in required_columns + optional_columns:
             if col not in df.columns:
                 df[col] = "" if col in optional_columns else None
@@ -183,11 +233,18 @@ def validate_fighter_dataframe(df: pd.DataFrame) -> Tuple[Optional[pd.DataFrame]
 
         df["Age"] = df["Age"].astype(int)
 
-        # Weight validation
-        df["Weight"] = pd.to_numeric(df["Weight"], errors="coerce")
-        if df["Weight"].isna().any():
-            return None, "Invalid weight values. Must be numeric."
-        df["Weight"] = df["Weight"].astype(float)
+        # Weight category parsing
+        if "Weight" in df.columns:
+            # Parse weight categories into min/max
+            weight_ranges = df["Weight"].apply(parse_weight_category)
+            df["Weight_Min"] = weight_ranges.apply(lambda x: x[0])
+            df["Weight_Max"] = weight_ranges.apply(lambda x: x[1])
+            # Keep original weight text for display
+            df["Weight_Display"] = df["Weight"]
+        else:
+            df["Weight_Min"] = 0
+            df["Weight_Max"] = 999
+            df["Weight_Display"] = ""
 
         # Record (experience) - optional, convert to numeric if possible
         if "Record" in df.columns:
@@ -200,6 +257,17 @@ def validate_fighter_dataframe(df: pd.DataFrame) -> Tuple[Optional[pd.DataFrame]
             df["Wins"] = (
                 pd.to_numeric(df["Wins"], errors="coerce").fillna(0).astype(int)
             )
+
+        # Class validation - optional, must be A, B, C, or empty
+        if "Class" in df.columns:
+            df["Class"] = df["Class"].astype(str).str.upper().str.strip()
+            valid_classes = ["A", "B", "C", ""]
+            invalid_classes = df[~df["Class"].isin(valid_classes)]
+            if not invalid_classes.empty:
+                return (
+                    None,
+                    f"Invalid class values found. Use A, B, C, or leave empty. Invalid rows: {invalid_classes.index.tolist()}",
+                )
 
         # Fill missing optional fields with empty string
         optional_fields = ["Club", "Trainer", "Class", "Age_Category"]
