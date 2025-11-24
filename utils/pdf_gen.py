@@ -3,7 +3,6 @@
 import pandas as pd
 from fpdf import FPDF
 from io import BytesIO
-import streamlit as st
 
 
 def generate_excel_fighters(fighters_df: pd.DataFrame, event_date: str = None) -> bytes:

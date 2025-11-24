@@ -9,18 +9,17 @@ from utils.data_loader import (
 )
 from utils.pairing import pair_fighters
 from utils.pdf_gen import (
-    generate_excel_matches,
     generate_excel_fighters,
     generate_pdf_bout_sheets,
 )
-from utils.auth import require_auth, logout_user
+from utils.auth import require_auth
 
 # Import GSheets connection (optional, for Google Sheets mode)
 try:
     from streamlit_gsheets import GSheetsConnection
 except ImportError:
     GSheetsConnection = None
-from utils.auth import require_auth, logout, get_current_user
+from utils.auth import logout, get_current_user
 
 # Translation dictionaries
 translations = {
@@ -122,6 +121,26 @@ translations = {
         "save_matches_event": "Save Matches to Selected Event",
         "matches_saved": "Matches saved to event '{name}' successfully!",
         "error_save_matches": "Error saving matches",
+        "login_required": "🔐 Login Required",
+        "login_instruction": "Please log in to access the Muay Thai Matchmaker.",
+        "email": "Email",
+        "password": "Password",
+        "login_button": "Login",
+        "enter_email_password": "Please enter both email and password.",
+        "login_success": "Login successful!",
+        "login_failed": "Login failed",
+        "logout_warning": "Logout warning",
+        "missing_supabase_config": "Missing Supabase configuration",
+        "logout": "Logout",
+        "user_display": "User",
+        "error_loading_data": "Error loading data",
+        "error_reading_sheet": "Error reading sheet",
+        "import_validate_data": "Import & Validate Data",
+        "validation_error": "Validation error",
+        "send_to_staging": "Send to Staging for Pairing",
+        "save_changes": "Save Changes",
+        "deactivate_selected": "Deactivate Selected Fighters",
+        "error_deactivating": "Error deactivating",
     },
     "ru": {
         "title": "🥊 Сопоставитель бойцов Муай Тай",
@@ -221,6 +240,26 @@ translations = {
         "save_matches_event": "Сохранить матчи в выбранное событие",
         "matches_saved": "Матчи сохранены в событие '{name}' успешно!",
         "error_save_matches": "Ошибка сохранения матчей",
+        "login_required": "🔐 Требуется вход",
+        "login_instruction": "Пожалуйста, войдите в систему для доступа к Сопоставителю бойцов Муай Тай.",
+        "email": "Электронная почта",
+        "password": "Пароль",
+        "login_button": "Войти",
+        "enter_email_password": "Пожалуйста, введите email и пароль.",
+        "login_success": "Вход выполнен успешно!",
+        "login_failed": "Ошибка входа",
+        "logout_warning": "Предупреждение выхода",
+        "missing_supabase_config": "Отсутствует конфигурация Supabase",
+        "logout": "Выйти",
+        "user_display": "Пользователь",
+        "error_loading_data": "Ошибка загрузки данных",
+        "error_reading_sheet": "Ошибка чтения таблицы",
+        "import_validate_data": "Импорт и валидация данных",
+        "validation_error": "Ошибка валидации",
+        "send_to_staging": "Отправить на подготовку для генерации пар",
+        "save_changes": "Сохранить изменения",
+        "deactivate_selected": "Деактивировать выбранных бойцов",
+        "error_deactivating": "Ошибка деактивации",
     },
 }
 
@@ -250,8 +289,8 @@ with st.sidebar:
     user = get_current_user()
     if user:
         email = getattr(user, "email", "Unknown")
-        st.write("User: {}".format(email))
-        if st.button("Logout"):
+        st.write("{}: {}".format(t("user_display"), email))
+        if st.button(t("logout")):
             logout()
 
 st.title(t("title"))
@@ -297,7 +336,7 @@ with tab1:
             df, error_msg = validate_excel_file(uploaded_file)
 
             if error_msg:
-                st.error("Error loading data: {}".format(error_msg))
+                st.error("{}: {}".format(t("error_loading_data"), error_msg))
             else:
                 st.success(t("data_loaded"))
 
@@ -343,7 +382,7 @@ with tab1:
                     df_raw = conn.read(spreadsheet=sheet_url)
 
                 except Exception as e:
-                    st.error(f"Error reading sheet: {str(e)}")
+                    st.error(f"{t('error_reading_sheet')}: {str(e)}")
                     df_raw = pd.DataFrame()
 
                 if not df_raw.empty:
@@ -414,7 +453,7 @@ with tab1:
                             "Wins Column (optional)", ["None"] + available_columns
                         )
 
-                    if st.button("Import & Validate Data"):
+                    if st.button(t("import_validate_data")):
                         # Map columns
                         column_mapping = {
                             "Name": name_col,
@@ -447,7 +486,7 @@ with tab1:
                         df, error_msg = validate_fighter_dataframe(df)
 
                         if error_msg:
-                            st.error("Validation error: {}".format(error_msg))
+                            st.error("{}: {}".format(t("validation_error"), error_msg))
                         else:
                             # Add weight class
                             df["Weight Class"] = df["Weight"].apply(get_weight_class)
@@ -514,7 +553,7 @@ with tab1:
                             ):
                                 selected_fighter_ids.append(fighter["id"])
 
-                        if st.button("Send to Staging for Pairing", type="primary"):
+                        if st.button(t("send_to_staging"), type="primary"):
                             if selected_fighter_ids:
                                 # Create dataframe from selected fighters
                                 selected_fighters_data = [
@@ -930,7 +969,7 @@ with tab5:
                     },
                 )
 
-                if st.button("Save Changes", type="primary"):
+                if st.button(t("save_changes"), type="primary"):
                     changes_made = 0
                     for _, row in edited_df.iterrows():
                         fighter_id = int(row["ID"])
@@ -991,7 +1030,7 @@ with tab5:
                         help="Deactivated fighters won't appear in tournament selections",
                     )
 
-                    if st.button("Deactivate Selected Fighters", type="secondary"):
+                    if st.button(t("deactivate_selected"), type="secondary"):
                         deactivated_count = 0
                         for name in selected_to_deactivate:
                             fighter = next(
@@ -1002,7 +1041,9 @@ with tab5:
                                     deactivate_fighter(fighter["id"])
                                     deactivated_count += 1
                                 except Exception as e:
-                                    st.error(f"Error deactivating {name}: {str(e)}")
+                                    st.error(
+                                        f"{t('error_deactivating')} {name}: {str(e)}"
+                                    )
 
                         if deactivated_count > 0:
                             st.success(

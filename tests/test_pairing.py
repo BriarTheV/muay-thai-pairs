@@ -1,4 +1,3 @@
-import pytest
 import pandas as pd
 from utils.pairing import pair_fighters, is_valid_pair, Fighter
 

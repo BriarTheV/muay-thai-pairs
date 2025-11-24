@@ -1,7 +1,7 @@
 # utils/pairing.py - Core pairing logic
 
 import pandas as pd
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Optional
 from dataclasses import dataclass
 
 # Constants

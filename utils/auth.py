@@ -3,6 +3,40 @@
 import streamlit as st
 from supabase import create_client, Client
 
+# Translation dictionaries (subset for auth)
+auth_translations = {
+    "en": {
+        "login_required": "🔐 Login Required",
+        "login_instruction": "Please log in to access the Muay Thai Matchmaker.",
+        "email": "Email",
+        "password": "Password",
+        "login_button": "Login",
+        "enter_email_password": "Please enter both email and password.",
+        "login_success": "Login successful!",
+        "login_failed": "Login failed",
+        "logout_warning": "Logout warning",
+        "missing_supabase_config": "Missing Supabase configuration",
+    },
+    "ru": {
+        "login_required": "🔐 Требуется вход",
+        "login_instruction": "Пожалуйста, войдите в систему для доступа к Сопоставителю бойцов Муай Тай.",
+        "email": "Электронная почта",
+        "password": "Пароль",
+        "login_button": "Войти",
+        "enter_email_password": "Пожалуйста, введите email и пароль.",
+        "login_success": "Вход выполнен успешно!",
+        "login_failed": "Ошибка входа",
+        "logout_warning": "Предупреждение выхода",
+        "missing_supabase_config": "Отсутствует конфигурация Supabase",
+    },
+}
+
+
+def auth_t(key):
+    """Translation function for auth module"""
+    lang = st.session_state.get("language", "ru")
+    return auth_translations[lang].get(key, key)
+
 
 def init_supabase() -> Client:
     """Initialize Supabase client from secrets."""
@@ -12,25 +46,27 @@ def init_supabase() -> Client:
         )
         return supabase
     except KeyError as e:
-        st.error(f"Missing Supabase configuration: {e}")
+        st.error(f"{auth_t('missing_supabase_config')}: {e}")
         st.stop()
 
 
 def show_login_page():
     """Display login form."""
-    st.title("🔐 Login Required")
+    st.title(auth_t("login_required"))
 
-    st.write("Please log in to access the Muay Thai Matchmaker.")
+    st.write(auth_t("login_instruction"))
 
     with st.form("login_form"):
-        email = st.text_input("Email", key="login_email")
-        password = st.text_input("Password", type="password", key="login_password")
+        email = st.text_input(auth_t("email"), key="login_email")
+        password = st.text_input(
+            auth_t("password"), type="password", key="login_password"
+        )
 
-        submitted = st.form_submit_button("Login")
+        submitted = st.form_submit_button(auth_t("login_button"))
 
         if submitted:
             if not email or not password:
-                st.error("Please enter both email and password.")
+                st.error(auth_t("enter_email_password"))
                 return
 
             login_user(email, password)
@@ -48,11 +84,11 @@ def login_user(email: str, password: str):
         st.session_state.user = response.user
         st.session_state.user_email = response.user.email
 
-        st.success("Login successful!")
+        st.success(auth_t("login_success"))
         st.rerun()
 
     except Exception as e:
-        st.error(f"Login failed: {str(e)}")
+        st.error(f"{auth_t('login_failed')}: {str(e)}")
 
 
 def get_current_user():
@@ -71,7 +107,7 @@ def logout_user():
         supabase = init_supabase()
         supabase.auth.sign_out()
     except Exception as e:
-        st.warning(f"Logout warning: {str(e)}")
+        st.warning(f"{auth_t('logout_warning')}: {str(e)}")
 
     # Clear session state
     if "user" in st.session_state:

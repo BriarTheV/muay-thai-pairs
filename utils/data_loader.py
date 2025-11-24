@@ -1,7 +1,6 @@
 # utils/data_loader.py - Excel validation and cleaning
 
 import pandas as pd
-import streamlit as st
 from typing import Optional, Tuple
 
 EXPECTED_COLUMNS = [
