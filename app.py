@@ -81,12 +81,12 @@ with tab1:
     # Data ingestion mode selection
     ingestion_mode = st.radio(
         t("data_ingestion_mode"),
-        [t("file_upload"), t("database_tournament")],
+        [t("file_upload"), t("google_sheets"), t("database_tournament")],
         index=0,
         horizontal=True,
     )
 
-    if ingestion_mode == "File Upload":
+    if ingestion_mode == t("file_upload"):
         # File uploader
         uploaded_file = st.file_uploader(
             t("upload_help"), type=["xlsx"], help=t("upload_help")
@@ -117,14 +117,12 @@ with tab1:
                 )
                 st.write("{}: {} unique clubs".format(t("clubs"), df["Club"].nunique()))
 
-    elif ingestion_mode == "Google Sheets":
+    elif ingestion_mode == t("google_sheets"):
         st.subheader(t("gsheets_import"))
 
         if GSheetsConnection is None:
             st.error(t("gsheets_error"))
-            st.info(
-                "Please install streamlit-gsheets-connection to use Google Sheets import."
-            )
+            st.info(t("gsheets_install"))
         else:
             # Sheet URL input
             sheet_url = st.text_input(
@@ -263,7 +261,7 @@ with tab1:
 
                 st.info(t("gsheets_help"))
 
-    elif ingestion_mode == "Database Tournament":
+    elif ingestion_mode == t("database_tournament"):
         st.subheader(t("db_tournament"))
 
         try:
@@ -294,7 +292,7 @@ with tab1:
                         )
                     )
                     selected_clubs = st.multiselect(
-                        "Filter by Clubs", clubs, default=clubs
+                        t("filter_by_clubs"), clubs, default=clubs
                     )
 
                     # Get fighters for selected clubs
@@ -612,7 +610,7 @@ with tab5:
 
         # Tabs for different management functions
         manage_tab1, manage_tab2, manage_tab3 = st.tabs(
-            ["➕ Add Fighter", "📝 Edit Fighters", "🏛️ Manage Clubs"]
+            [t("manage_add_fighter"), t("manage_edit_fighters"), t("manage_clubs")]
         )
 
         with manage_tab1:
@@ -663,7 +661,7 @@ with tab5:
                         "Age", min_value=16, max_value=100, value=25, key="add_age"
                     )
                     club_options = [""] + [club["name"] for club in get_clubs()]
-                    club = st.selectbox("Club", club_options, key="add_club")
+                    club = st.selectbox(t("fighter_club"), club_options, key="add_club")
                     record = st.number_input(
                         "Record (wins)",
                         min_value=0,
@@ -672,16 +670,16 @@ with tab5:
                         key="add_record",
                     )
 
-                trainer = st.text_input("Trainer (optional)", key="add_trainer")
+                trainer = st.text_input(t("trainer_optional"), key="add_trainer")
                 wins = st.number_input(
-                    "Wins (optional)",
+                    t("wins_optional"),
                     min_value=0,
                     max_value=100,
                     value=0,
                     key="add_wins",
                 )
 
-                submitted = st.form_submit_button("Add Fighter")
+                submitted = st.form_submit_button(t("add_fighter_button"))
 
                 if submitted:
                     if not name or not gender or not weight:
@@ -869,7 +867,7 @@ with tab5:
                     key="club_contact",
                 )
 
-                submitted = st.form_submit_button("Add Club")
+                submitted = st.form_submit_button(t("add_club_button"))
 
                 if submitted and club_name:
                     try:
