@@ -106,7 +106,9 @@ with tab1:
                 st.subheader(t("column_mapping"))
                 st.write(t("map_columns"))
 
-                available_columns = list(pd.read_excel(uploaded_file, nrows=0).columns)
+                available_columns = [
+                    str(col) for col in pd.read_excel(uploaded_file, nrows=0).columns
+                ]
                 if len(available_columns) < 4:
                     st.error(
                         t("error_loading_data")
@@ -121,7 +123,8 @@ with tab1:
                             available_columns,
                             index=0
                             if any(
-                                "name" in col.lower() or "фамилия" in col.lower()
+                                "name" in str(col).lower()
+                                or "фамилия" in str(col).lower()
                                 for col in available_columns[:1]
                             )
                             else None,
@@ -251,7 +254,7 @@ with tab1:
                     st.subheader(t("column_mapping"))
                     st.write(t("map_columns"))
 
-                    available_columns = list(df_raw.columns)
+                    available_columns = [str(col) for col in df_raw.columns]
 
                     # Required columns
                     col1, col2, col3 = st.columns(3)
@@ -261,7 +264,8 @@ with tab1:
                             available_columns,
                             index=0
                             if any(
-                                "name" in col.lower() or "фамилия" in col.lower()
+                                "name" in str(col).lower()
+                                or "фамилия" in str(col).lower()
                                 for col in available_columns[:1]
                             )
                             else None,
