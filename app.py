@@ -226,8 +226,6 @@ with tab1:
 
             # Validate and load data
             df, error_msg = validate_excel_file(uploaded_file, column_mapping)
-            # Validate and load data
-            df, error_msg = validate_excel_file(uploaded_file)
 
             if error_msg:
                 st.error("{}: {}".format(t("error_loading_data"), error_msg))
