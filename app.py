@@ -5,6 +5,7 @@ import pandas as pd
 from utils.data_loader import validate_excel_file, get_weight_class
 from utils.pairing import pair_fighters
 from utils.pdf_gen import generate_excel_matches, generate_pdf_bout_sheets
+from utils.auth import require_auth, logout_user
 from utils.auth import require_auth, logout, get_current_user
 
 # Translation dictionaries
