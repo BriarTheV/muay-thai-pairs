@@ -43,9 +43,66 @@ def generate_seeded_bracket(participants: list) -> list:
 
 
 def display_interactive_bracket(matches_df: pd.DataFrame):
-    """Display interactive Olympic-style tournament bracket."""
+    """Display interactive Olympic-style tournament bracket with improved readability."""
     winners = st.session_state.get("bracket_winners", {})
     current_round = st.session_state.get("current_round", 1)
+
+    st.markdown(
+        """
+    <style>
+    .tournament-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    .round-section {
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+    .match-card {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 15px;
+        margin: 10px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .fighter-name {
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    .club-name {
+        color: #6c757d;
+        font-size: 0.9em;
+    }
+    .winner-badge {
+        background: #28a745;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        display: inline-block;
+        margin-left: 10px;
+    }
+    .bye-badge {
+        background: #ffc107;
+        color: black;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        display: inline-block;
+        margin-left: 10px;
+    }
+    </style>
+    """,
+        unsafe_allow_html=True,
+    )
 
     # Group by weight class
     if "Weight_Class" in matches_df.columns:
@@ -54,7 +111,15 @@ def display_interactive_bracket(matches_df: pd.DataFrame):
         grouped = [(t("all_classes"), matches_df)]
 
     for class_name, class_matches in grouped:
-        st.subheader(f"{t('weight_class')}: {class_name}")
+        st.markdown(
+            f"""
+        <div class="tournament-header">
+            <h2>{t("weight_class")}: {class_name}</h2>
+            <p>🏆 Olympic Single-Elimination Tournament</p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
 
         # Get participants for this weight class
         participants = []
@@ -74,41 +139,88 @@ def display_interactive_bracket(matches_df: pd.DataFrame):
         round_num = 1
 
         while round_matches:
-            st.write(f"### {t('round')} {round_num}")
+            with st.expander(
+                f"📅 {t('round')} {round_num}", expanded=(round_num == current_round)
+            ):
+                if round_num == current_round:
+                    # Interactive round
+                    st.markdown('<div class="round-section">', unsafe_allow_html=True)
+                    cols = st.columns(min(3, len(round_matches)))
+                    for i, (fighter1, fighter2) in enumerate(round_matches):
+                        with cols[i % len(cols)]:
+                            if fighter1 == "BYE":
+                                st.markdown(
+                                    f"""
+                                <div class="match-card">
+                                    <div class="fighter-name">{fighter2}</div>
+                                    <span class="bye-badge">BYE</span>
+                                </div>
+                                """,
+                                    unsafe_allow_html=True,
+                                )
+                                winners[f"round{round_num}_match{i}"] = fighter2
+                            elif fighter2 == "BYE":
+                                st.markdown(
+                                    f"""
+                                <div class="match-card">
+                                    <div class="fighter-name">{fighter1}</div>
+                                    <span class="bye-badge">BYE</span>
+                                </div>
+                                """,
+                                    unsafe_allow_html=True,
+                                )
+                                winners[f"round{round_num}_match{i}"] = fighter1
+                            else:
+                                st.markdown(
+                                    f"""
+                                <div class="match-card">
+                                    <h4>{t("pair")} {i + 1}</h4>
+                                    <div class="fighter-name">🔴 {fighter1}</div>
+                                    <div style="text-align: center; margin: 10px 0;">VS</div>
+                                    <div class="fighter-name">🔵 {fighter2}</div>
+                                </div>
+                                """,
+                                    unsafe_allow_html=True,
+                                )
 
-            if round_num == current_round:
-                # Interactive round
-                cols = st.columns(min(3, len(round_matches)))
-                for i, (fighter1, fighter2) in enumerate(round_matches):
-                    with cols[i % len(cols)]:
-                        if fighter1 == "BYE":
-                            st.write(f"**{fighter2}** - BYE")
-                            winners[f"round{round_num}_match{i}"] = fighter2
-                        elif fighter2 == "BYE":
-                            st.write(f"**{fighter1}** - BYE")
-                            winners[f"round{round_num}_match{i}"] = fighter1
-                        else:
-                            st.write(f"**{t('pair')} {i + 1}**")
-                            st.write(f"🏆 {fighter1}")
-                            st.write(f"🏆 {fighter2}")
-
-                            winner = st.radio(
-                                "Winner:",
-                                [fighter1, fighter2],
-                                key=f"round{round_num}_match{i}",
-                                horizontal=True,
-                            )
-                            winners[f"round{round_num}_match{i}"] = winner
-            else:
-                # Show results
-                cols = st.columns(min(3, len(round_matches)))
-                for i, (fighter1, fighter2) in enumerate(round_matches):
-                    with cols[i % len(cols)]:
-                        winner = winners.get(f"round{round_num}_match{i}")
-                        if winner:
-                            st.write(f"**{t('pair')} {i + 1}**: {winner} 🏆")
-                        else:
-                            st.write(f"**{t('pair')} {i + 1}**: Pending")
+                                winner = st.radio(
+                                    "🏆 Select Winner:",
+                                    [fighter1, fighter2],
+                                    key=f"round{round_num}_match{i}",
+                                    horizontal=True,
+                                    label_visibility="collapsed",
+                                )
+                                winners[f"round{round_num}_match{i}"] = winner
+                    st.markdown("</div>", unsafe_allow_html=True)
+                else:
+                    # Show results
+                    st.markdown('<div class="round-section">', unsafe_allow_html=True)
+                    cols = st.columns(min(3, len(round_matches)))
+                    for i, (fighter1, fighter2) in enumerate(round_matches):
+                        with cols[i % len(cols)]:
+                            winner = winners.get(f"round{round_num}_match{i}")
+                            if winner:
+                                st.markdown(
+                                    f"""
+                                <div class="match-card">
+                                    <h4>{t("pair")} {i + 1}</h4>
+                                    <div class="fighter-name">{winner}</div>
+                                    <span class="winner-badge">WINNER</span>
+                                </div>
+                                """,
+                                    unsafe_allow_html=True,
+                                )
+                            else:
+                                st.markdown(
+                                    f"""
+                                <div class="match-card">
+                                    <h4>{t("pair")} {i + 1}</h4>
+                                    <div style="color: #6c757d;">Pending Result</div>
+                                </div>
+                                """,
+                                    unsafe_allow_html=True,
+                                )
+                    st.markdown("</div>", unsafe_allow_html=True)
 
             # Prepare next round
             next_round_matches = []
@@ -126,10 +238,18 @@ def display_interactive_bracket(matches_df: pd.DataFrame):
         st.session_state["current_round"] = current_round
 
         # Controls
-        col1, col2 = st.columns(2)
+        st.markdown("---")
+        col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("Next Round"):
+            if st.button("⏭️ Next Round", type="primary"):
                 st.session_state["current_round"] = min(current_round + 1, round_num)
+                st.rerun()
+        with col2:
+            st.metric("Current Round", current_round)
+        with col3:
+            if st.button("🔄 Reset Tournament"):
+                st.session_state["bracket_winners"] = {}
+                st.session_state["current_round"] = 1
                 st.rerun()
         with col2:
             if st.button("Reset Tournament"):

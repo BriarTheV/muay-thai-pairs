@@ -233,6 +233,10 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         return pd.DataFrame(), df
 
     fighters = create_fighters(df)
+
+    # Sort fighters by age first, then by weight
+    fighters.sort(key=lambda f: (f.age, f.weight_min))
+
     matches = []
     unmatched = []
 
@@ -307,6 +311,8 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
                 unmatched.append(f)
 
     matches_df = pd.DataFrame(matches)
+    # Ensure sequential pair numbers
+    matches_df["Match_ID"] = range(1, len(matches_df) + 1)
     unmatched_df = pd.DataFrame(
         [
             {
