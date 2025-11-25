@@ -55,6 +55,58 @@ def generate_seeded_bracket(
     return bracket
 
 
+def display_bracket_round(bracket: TournamentBracket, round_num: int):
+    """Display a specific round of the tournament bracket."""
+    if round_num >= len(bracket.rounds):
+        st.error("Round does not exist")
+        return
+
+    round_matches = bracket.rounds[round_num]
+    st.subheader(f"Round {round_num + 1}")
+
+    if not round_matches:
+        st.info("No matches in this round")
+        return
+
+    # Display matches
+    cols = st.columns(min(4, max(1, len(round_matches) // 2)))
+    for i, (fighter1, fighter2) in enumerate(round_matches):
+        with cols[i % len(cols)]:
+            st.markdown(f"""
+            <div style="border: 2px solid #ddd; border-radius: 8px; padding: 15px; margin: 10px 0; background: #f8f9fa;">
+                <h4>Match {i+1}</h4>
+            """, unsafe_allow_html=True)
+
+            if fighter1 == "BYE":
+                st.markdown(f"**{fighter2}** - BYE (Automatic Advance)")
+                if round_num < len(bracket.rounds) - 1:
+                    bracket.advance_winner(round_num, i, fighter2)
+            elif fighter2 == "BYE":
+                st.markdown(f"**{fighter1}** - BYE (Automatic Advance)")
+                if round_num < len(bracket.rounds) - 1:
+                    bracket.advance_winner(round_num, i, fighter1)
+            else:
+                st.markdown(f"🔴 **{fighter1}**")
+                st.markdown(f"🔵 **{fighter2}**")
+
+                # Winner selection
+                winner_key = f"r{round_num}m{i}"
+                current_winner = bracket.winners.get(winner_key)
+
+                winner = st.radio(
+                    "Select Winner:",
+                    [fighter1, fighter2],
+                    key=winner_key,
+                    index=0 if current_winner == fighter1 else (1 if current_winner == fighter2 else None),
+                    horizontal=True,
+                    label_visibility="collapsed"
+                )
+
+                if winner != current_winner:
+                    bracket.advance_winner(round_num, i, winner)
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
 def display_interactive_bracket(matches_df: pd.DataFrame):
     """Display interactive Olympic-style tournament bracket with improved readability."""
     winners = st.session_state.get("bracket_winners", {})
@@ -218,6 +270,82 @@ def display_interactive_bracket(matches_df: pd.DataFrame):
                 st.session_state["bracket_winners"] = {}
                 st.session_state["current_round"] = 1
                 st.rerun()
+
+
+class TournamentBracket:
+    """Manages a single-elimination tournament bracket."""
+
+    def __init__(self, fighters_df: pd.DataFrame, seeding_method: str = "standard"):
+        self.fighters_df = fighters_df
+        self.seeding_method = seeding_method
+        self.rounds = []
+        self.current_round = 0
+        self.winners = {}
+        self.completed = False
+
+        # Generate initial bracket
+        self._generate_bracket()
+
+    def _generate_bracket(self):
+        """Generate the tournament bracket structure."""
+        # Get fighter names for bracket
+        participants = []
+        for _, fighter in self.fighters_df.iterrows():
+            name = f"{fighter['Name']} ({fighter.get('Club', 'Unknown')})"
+            participants.append(name)
+
+        # Generate seeded bracket
+        bracket = generate_seeded_bracket(participants, self.seeding_method)
+
+        # Initialize rounds
+        self.rounds = [bracket]
+
+        # Generate subsequent rounds (placeholders)
+        current_matches = bracket
+        round_num = 1
+        while len(current_matches) > 1:
+            next_matches = []
+            for i in range(0, len(current_matches), 2):
+                if i + 1 < len(current_matches):
+                    next_matches.append(("TBD", "TBD"))
+            if next_matches:
+                self.rounds.append(next_matches)
+            current_matches = next_matches
+            round_num += 1
+
+    def advance_winner(self, round_num: int, match_idx: int, winner: str):
+        """Advance a winner to the next round."""
+        if round_num < len(self.rounds) - 1:
+            next_round = round_num + 1
+            next_match_idx = match_idx // 2
+
+            if match_idx % 2 == 0:
+                # First slot in next match
+                self.rounds[next_round][next_match_idx] = (
+                    winner,
+                    self.rounds[next_round][next_match_idx][1],
+                )
+            else:
+                # Second slot in next match
+                self.rounds[next_round][next_match_idx] = (
+                    self.rounds[next_round][next_match_idx][0],
+                    winner,
+                )
+
+        self.winners[f"r{round_num}m{match_idx}"] = winner
+
+        # Check if round is complete
+        current_round_matches = self.rounds[round_num]
+        if all(
+            match[0] != "TBD" and match[1] != "TBD" for match in current_round_matches
+        ):
+            self.current_round = min(self.current_round + 1, len(self.rounds) - 1)
+
+        # Check tournament completion
+        if self.current_round == len(self.rounds) - 1 and len(self.rounds[-1]) == 1:
+            final_match = self.rounds[-1][0]
+            if final_match[0] != "TBD" and final_match[1] != "TBD":
+                self.completed = True
 
 
 def generate_matches_table(matches_df: pd.DataFrame) -> str:
@@ -521,144 +649,161 @@ with tab1:
         )
 
         if uploaded_file is not None:
-            # Column order option
-            use_standard_order = st.checkbox(
+            # Quick import option
+            use_quick_import = st.checkbox(
                 t("use_standard_column_order"),
-                value=False,
+                value=True,
                 help=t("standard_order_help"),
             )
 
             column_mapping = None
-            if not use_standard_order:
-                # Show column mapping UI
-                st.subheader(t("column_mapping"))
-                st.write(t("map_columns"))
+            if not use_quick_import:
+                # Advanced column mapping
+                with st.expander(t("column_mapping"), expanded=True):
+                    st.write(t("map_columns"))
 
-                # Get available columns
-                # Detect headers and get available columns
-                temp_df = pd.read_excel(uploaded_file, header=None, nrows=1)
-                first_row = temp_df.iloc[0].astype(str).str.lower()
-                header_keywords = [
-                    "name",
-                    "имя",
-                    "gender",
-                    "пол",
-                    "вес",
-                    "weight",
-                    "age",
-                    "возраст",
-                    "club",
-                    "клуб",
-                ]
-
-                has_headers = any(
-                    any(keyword in cell for keyword in header_keywords)
-                    for cell in first_row
-                )
-
-                if has_headers:
-                    available_columns = [
-                        str(col)
-                        for col in pd.read_excel(
-                            uploaded_file, nrows=0, header=0
-                        ).columns
+                    # Get available columns with improved detection
+                    temp_df = pd.read_excel(uploaded_file, header=None, nrows=1)
+                    first_row = temp_df.iloc[0].astype(str).str.lower()
+                    header_keywords = [
+                        "name",
+                        "имя",
+                        "фамилия",
+                        "спортсмен",
+                        "gender",
+                        "пол",
+                        "муж",
+                        "жен",
+                        "м",
+                        "ж",
+                        "вес",
+                        "weight",
+                        "категория",
+                        "age",
+                        "возраст",
+                        "лет",
+                        "года",
+                        "club",
+                        "клуб",
+                        "город",
+                        "команда",
+                        "trainer",
+                        "тренер",
+                        "coach",
+                        "record",
+                        "боев",
+                        "побед",
+                        "wins",
+                        "class",
+                        "класс",
+                        "разряд",
+                        "уровень",
                     ]
-                else:
-                    # For data files, show actual first row values
-                    available_columns = list(temp_df.iloc[0].astype(str))
-                if len(available_columns) < 4:
-                    st.error(
-                        t("error_loading_data")
-                        + f": File must have at least 4 columns. Found {len(available_columns)}."
+
+                    has_headers = any(
+                        any(keyword in cell for keyword in header_keywords)
+                        for cell in first_row
                     )
-                else:
-                    # Required columns
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        name_col = st.selectbox(
-                            t("name_column"),
-                            available_columns,
-                            index=find_best_column(available_columns, "name"),
-                        )
-                    with col2:
-                        gender_col = st.selectbox(
-                            t("gender_column"),
-                            available_columns,
-                            index=find_best_column(available_columns, "gender"),
-                        )
-                    with col3:
-                        weight_col = st.selectbox(
-                            t("weight_column"),
-                            available_columns,
-                            index=find_best_column(available_columns, "weight"),
-                        )
 
-                    # Optional columns
-                    col4, col5, col6 = st.columns(3)
-                    with col4:
-                        club_col = st.selectbox(
-                            t("club_column_optional"), ["None"] + available_columns
-                        )
-                    with col5:
-                        dob_col = st.selectbox(
-                            t("dob_column_optional"), ["None"] + available_columns
-                        )
-                    with col6:
-                        age_col = st.selectbox(
-                            t("age_column_optional"), ["None"] + available_columns
-                        )
+                    if has_headers:
+                        available_columns = [
+                            str(col)
+                            for col in pd.read_excel(
+                                uploaded_file, nrows=0, header=0
+                            ).columns
+                        ]
+                    else:
+                        available_columns = list(temp_df.iloc[0].astype(str))
 
-                    col7, col8, col9 = st.columns(3)
-                    with col7:
-                        trainer_col = st.selectbox(
-                            t("trainer_column_optional"), ["None"] + available_columns
+                    if len(available_columns) < 4:
+                        st.error(
+                            t("error_loading_data")
+                            + f": File must have at least 4 columns. Found {len(available_columns)}."
                         )
-                    with col8:
-                        record_col = st.selectbox(
-                            t("record_column_optional"), ["None"] + available_columns
+                    else:
+                        # Required columns
+                        st.subheader("Required Columns")
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            name_col = st.selectbox(
+                                t("name_column"),
+                                available_columns,
+                                index=find_best_column(available_columns, "name"),
+                            )
+                        with col2:
+                            gender_col = st.selectbox(
+                                t("gender_column"),
+                                available_columns,
+                                index=find_best_column(available_columns, "gender"),
+                            )
+                        with col3:
+                            weight_col = st.selectbox(
+                                t("weight_column"),
+                                available_columns,
+                                index=find_best_column(available_columns, "weight"),
+                            )
+
+                        # Optional columns in expander
+                        with st.expander("Optional Columns", expanded=False):
+                            col4, col5, col6 = st.columns(3)
+                            with col4:
+                                club_col = st.selectbox(
+                                    t("club_column_optional"),
+                                    ["None"] + available_columns,
+                                )
+                            with col5:
+                                age_col = st.selectbox(
+                                    t("age_column_optional"),
+                                    ["None"] + available_columns,
+                                )
+                            with col6:
+                                trainer_col = st.selectbox(
+                                    t("trainer_column_optional"),
+                                    ["None"] + available_columns,
+                                )
+
+                            col7, col8 = st.columns(2)
+                            with col7:
+                                record_col = st.selectbox(
+                                    t("record_column_optional"),
+                                    ["None"] + available_columns,
+                                )
+                            with col8:
+                                wins_col = st.selectbox(
+                                    t("wins_column_optional"),
+                                    ["None"] + available_columns,
+                                )
+
+                        # Create mapping
+                        column_mapping = {
+                            name_col: "Name",
+                            gender_col: "Gender",
+                            weight_col: "Weight",
+                        }
+                        if club_col != "None":
+                            column_mapping[club_col] = "Club"
+                        if age_col != "None":
+                            column_mapping[age_col] = "Age"
+                        if trainer_col != "None":
+                            column_mapping[trainer_col] = "Trainer"
+                        if record_col != "None":
+                            column_mapping[record_col] = "Record"
+                        if wins_col != "None":
+                            column_mapping[wins_col] = "Wins"
+
+                        # Validate no duplicate column selections
+                        selected_columns = list(column_mapping.keys())
+                        if len(set(selected_columns)) < len(selected_columns):
+                            st.error(t("duplicate_columns_error"))
+                            st.stop()  # Don't proceed with import
+
+                        # Show mapping preview
+                        st.subheader("Column Mapping Preview")
+                        mapping_df = pd.DataFrame(
+                            list(column_mapping.items()),
+                            columns=["File Column", "Standard Name"],
                         )
-                    with col9:
-                        wins_col = st.selectbox(
-                            t("wins_column_optional"), ["None"] + available_columns
-                        )
-
-                    # Create mapping
-                    column_mapping = {
-                        name_col: "Name",
-                        gender_col: "Gender",
-                        weight_col: "Weight",
-                    }
-                    if club_col != "None":
-                        column_mapping[club_col] = "Club"
-                    if dob_col != "None":
-                        column_mapping[dob_col] = "DOB"
-                    if age_col != "None":
-                        column_mapping[age_col] = "Age"
-                    if trainer_col != "None":
-                        column_mapping[trainer_col] = "Trainer"
-                    if record_col != "None":
-                        column_mapping[record_col] = "Record"
-                    if wins_col != "None":
-                        column_mapping[wins_col] = "Wins"
-
-                    # Validate no duplicate column selections
-                    selected_columns = [name_col, gender_col, weight_col]
-                    if club_col != "None":
-                        selected_columns.append(club_col)
-                    if dob_col != "None":
-                        selected_columns.append(dob_col)
-                    if age_col != "None":
-                        selected_columns.append(age_col)
-                    if trainer_col != "None":
-                        selected_columns.append(trainer_col)
-                    if record_col != "None":
-                        selected_columns.append(record_col)
-                    if wins_col != "None":
-                        selected_columns.append(wins_col)
-
-                    if len(set(selected_columns)) < len(selected_columns):
-                        st.error(t("duplicate_columns_error"))
-                        st.stop()  # Don't proceed with import
+                        st.dataframe(mapping_df, use_container_width=True)
 
             # Validate and load data
             try:
@@ -1514,17 +1659,44 @@ with tab5:
 with tab6:
     st.header(t("tournament_brackets"))
 
-    if st.session_state["matches"].empty:
-        st.warning("No matches to display. Generate pairings first.")
+    if st.session_state.get("fighters_df") is None or st.session_state["fighters_df"].empty:
+        st.warning("No fighter data available. Import fighters first.")
     else:
-        matches_df = st.session_state["matches"]
+        fighters_df = st.session_state["fighters_df"]
 
-        # Interactive bracket
-        display_interactive_bracket(matches_df)
+        # Create or get tournament bracket
+        if "tournament_bracket" not in st.session_state:
+            st.session_state["tournament_bracket"] = TournamentBracket(fighters_df)
 
-        # Fallback: show current session data
-        if not st.session_state["fighters_df"].empty:
-            st.subheader(t("current_fighter_data"))
-            st.dataframe(st.session_state["fighters_df"])
+        bracket = st.session_state["tournament_bracket"]
+
+        # Tournament controls
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Fighters", len(fighters_df))
+        with col2:
+            st.metric("Current Round", bracket.current_round + 1)
+        with col3:
+            status = "🏆 Completed" if bracket.completed else "⏳ In Progress"
+            st.metric("Status", status)
+
+        # Display current round
+        display_bracket_round(bracket, bracket.current_round)
+
+        # Navigation
+        st.markdown("---")
+        nav_col1, nav_col2, nav_col3 = st.columns(3)
+        with nav_col1:
+            if st.button("⬅️ Previous Round", disabled=bracket.current_round == 0):
+                bracket.current_round = max(0, bracket.current_round - 1)
+                st.rerun()
+        with nav_col2:
+            if st.button("➡️ Next Round", disabled=bracket.current_round >= len(bracket.rounds) - 1):
+                bracket.current_round = min(len(bracket.rounds) - 1, bracket.current_round + 1)
+                st.rerun()
+        with nav_col3:
+            if st.button("🔄 New Tournament"):
+                st.session_state["tournament_bracket"] = TournamentBracket(fighters_df)
+                st.rerun()
         else:
             st.warning(t("no_fighter_data"))
