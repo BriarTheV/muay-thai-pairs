@@ -161,22 +161,22 @@ def validate_excel_file(
 
         # Parse weight categories
         weight_column = "Weight_Class" if "Weight_Class" in df.columns else "Weight"
-            if weight_column in df.columns:
-                # Parse weight categories into min/max
-                weight_ranges = df[weight_column].apply(parse_weight_category)
-                df["Weight_Min"] = weight_ranges.apply(lambda x: x[0])
-                df["Weight_Max"] = weight_ranges.apply(lambda x: x[1])
-                # Keep original weight text for display
-                df["Weight_Display"] = df[weight_column]
+        if weight_column in df.columns:
+            # Parse weight categories into min/max
+            weight_ranges = df[weight_column].apply(parse_weight_category)
+            df["Weight_Min"] = weight_ranges.apply(lambda x: x[0])
+            df["Weight_Max"] = weight_ranges.apply(lambda x: x[1])
+            # Keep original weight text for display
+            df["Weight_Display"] = df[weight_column]
 
-            # Fill missing optional columns with empty strings
-            required_columns = ["Name", "Gender", "Age", "Weight"]
-            optional_columns = ["Club", "Trainer", "Record", "Class"]
-            for col in required_columns + optional_columns:
-                if col not in df.columns:
-                    df[col] = "" if col in optional_columns else None
+        # Fill missing optional columns with empty strings
+        required_columns = ["Name", "Gender", "Age", "Weight"]
+        optional_columns = ["Club", "Trainer", "Record", "Class"]
+        for col in required_columns + optional_columns:
+            if col not in df.columns:
+                df[col] = "" if col in optional_columns else None
 
-            return validate_fighter_dataframe(df)
+        return validate_fighter_dataframe(df)
 
     except Exception as e:
         return (None, f"Error validating data: {str(e)}")
@@ -243,7 +243,7 @@ def validate_fighter_dataframe(df: pd.DataFrame) -> Tuple[Optional[pd.DataFrame]
         if "Class" in df.columns:
             df["Class"] = df["Class"].astype(str).str.strip()
             # Accept single letters (latin or cyrillic) or empty
-            valid_mask = df["Class"].str.match(r'^(?:[A-Za-zА-Яа-я]|)$')
+            valid_mask = df["Class"].str.match(r"^(?:[A-Za-zА-Яа-я]|)$")
             invalid_mask = ~valid_mask
             if invalid_mask.any():
                 invalid_rows = df[invalid_mask].index.tolist()
