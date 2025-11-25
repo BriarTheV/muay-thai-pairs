@@ -340,6 +340,14 @@ def parse_weight_range(weight_str: str) -> Tuple[float, float]:
 
     weight_str = str(weight_str).strip().lower()
 
+    # Handle ">= X" (greater than or equal to X)
+    if ">=" in weight_str:
+        try:
+            weight = float(re.search(r">=\s*(\d+(?:\.\d+)?)", weight_str).group(1))
+            return (weight, weight)  # Treat as exact weight
+        except:
+            pass
+
     # Handle "до X" (up to X)
     if "до" in weight_str:
         try:
