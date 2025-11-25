@@ -136,6 +136,20 @@ def test_weight_tolerance_exceeded():
     # Weight diff check removed due to range format
 
 
+def test_weight_class_priority():
+    """Test that weight class matches take priority over weight ranges."""
+    f1 = Fighter(0, "A", "M", 20, 70.0, 70.0, "C1", "T1", 0, "Light")
+    f2 = Fighter(
+        1, "B", "M", 20, 80.0, 80.0, "C2", "T2", 0, "Light"
+    )  # Same class, different weight
+    f3 = Fighter(
+        2, "C", "M", 20, 75.0, 75.0, "C3", "T3", 0, "Heavy"
+    )  # Different class, different weight
+
+    assert is_valid_pair(f1, f2)  # Should be valid due to class match
+    assert not is_valid_pair(f1, f3)  # Different class, same weight - should be invalid
+
+
 def test_is_valid_pair():
     """Test the is_valid_pair function."""
     f1 = Fighter(0, "A", "M", 20, 70.0, 70.0, "C1", "T1", 0, "Welter")
