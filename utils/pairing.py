@@ -171,8 +171,9 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
         weight_min, weight_max = parse_weight_range(weight_str)
         weight_class = get_weight_category((weight_min + weight_max) / 2)
 
-        total_fights = int(row.get("Total_Fights", row.get("Record", 0)))
-        record = int(row.get("Record", 0))
+        # Record column contains total fights
+        total_fights = int(row.get("Record", row.get("Total_Fights", 0)))
+        record = int(row.get("Wins", 0))  # Wins from separate column if available
 
         fighter = Fighter(
             index=idx,
