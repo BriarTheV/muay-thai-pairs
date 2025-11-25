@@ -42,73 +42,25 @@ def generate_seeded_bracket(participants: list) -> list:
     return bracket
 
 
-def display_interactive_bracket(matches_df: pd.DataFrame):
+def display_interactive_bracket(
+    matches_df: pd.DataFrame, special_matches_df: pd.DataFrame = None
+):
     """Display interactive Olympic-style tournament bracket with improved readability."""
     winners = st.session_state.get("bracket_winners", {})
     current_round = st.session_state.get("current_round", 1)
 
-    st.markdown(
-        """
-    <style>
-    .tournament-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        margin-bottom: 30px;
-    }
-    .round-section {
-        background: #f8f9fa;
-        border: 2px solid #e9ecef;
-        border-radius: 8px;
-        padding: 20px;
-        margin: 20px 0;
-    }
-    .match-card {
-        background: white;
-        border: 1px solid #dee2e6;
-        border-radius: 6px;
-        padding: 15px;
-        margin: 10px 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .fighter-name {
-        font-weight: bold;
-        margin-bottom: 5px;
-    }
-    .club-name {
-        color: #6c757d;
-        font-size: 0.9em;
-    }
-    .winner-badge {
-        background: #28a745;
-        color: white;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.8em;
-        display: inline-block;
-        margin-left: 10px;
-    }
-    .bye-badge {
-        background: #ffc107;
-        color: black;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.8em;
-        display: inline-block;
-        margin-left: 10px;
-    }
-    </style>
-    """,
-        unsafe_allow_html=True,
+    # Combine normal and special matches
+    all_matches = (
+        pd.concat([matches_df, special_matches_df])
+        if special_matches_df is not None and not special_matches_df.empty
+        else matches_df
     )
 
     # Group by weight class
-    if "Weight_Class" in matches_df.columns:
-        grouped = matches_df.groupby("Weight_Class")
+    if "Weight_Class" in all_matches.columns:
+        grouped = all_matches.groupby("Weight_Class")
     else:
-        grouped = [(t("all_classes"), matches_df)]
+        grouped = [(t("all_classes"), all_matches)]
 
     for class_name, class_matches in grouped:
         st.markdown(
@@ -1004,38 +956,54 @@ with tab2:
         # Generate pairings button
         if st.button(t("generate_button"), type="primary"):
             with st.spinner(t("generating")):
-                matches_df, unmatched_df = pair_fighters(df)
+                normal_matches, special_matches, unmatched_df = pair_fighters(df)
 
                 # Store in session state
-                st.session_state["matches"] = matches_df
+                st.session_state["matches"] = normal_matches
+                st.session_state["special_matches"] = special_matches
                 st.session_state["unmatched"] = unmatched_df
 
             st.success(t("pairs_generated"))
 
         # Display results
-        if not st.session_state["matches"].empty:
-            matches_df = st.session_state["matches"]
-            st.subheader(t("header_matches"))
-            matches_html = generate_matches_table(matches_df)
-            st.components.v1.html(matches_html, height=600, scrolling=True)
+        normal_matches = st.session_state.get("matches", pd.DataFrame())
+        special_matches = st.session_state.get("special_matches", pd.DataFrame())
 
-            # Statistics
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric(t("total_matches"), len(matches_df))
-            with col2:
-                avg_weight_diff = matches_df["Weight_Diff"].mean()
-                st.metric(t("avg_weight_diff"), f"{avg_weight_diff:.2f} {t('kg')}")
-            with col3:
-                st.metric(t("unmatched_fighters"), len(st.session_state["unmatched"]))
+        if not normal_matches.empty:
+            st.subheader("✅ " + t("header_matches"))
+            matches_html = generate_matches_table(normal_matches)
+            st.components.v1.html(matches_html, height=400, scrolling=True)
 
-            # Warnings
+        if not special_matches.empty:
+            st.subheader("⚠️ Special Pairs (Large Age/Weight Differences)")
+            special_html = generate_matches_table(special_matches)
+            st.components.v1.html(special_html, height=400, scrolling=True)
+
+        total_matches = len(normal_matches) + len(special_matches)
+
+        # Statistics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Matches", total_matches)
+        with col2:
+            st.metric("Normal Pairs", len(normal_matches))
+        with col3:
+            st.metric("Special Pairs", len(special_matches))
+        with col4:
+            st.metric(
+                "Unmatched", len(st.session_state.get("unmatched", pd.DataFrame()))
+            )
+
+        # Warnings for normal pairs
+        if not normal_matches.empty:
             warnings = []
-            high_weight_diff = matches_df[matches_df["Weight_Diff"] > 1.0]
+            high_weight_diff = normal_matches[normal_matches["Weight_Diff"] > 1.0]
             if not high_weight_diff.empty:
                 warnings.append(f"{len(high_weight_diff)} {t('warning_high_weight')}")
 
-            high_age_diff = matches_df[matches_df["Age_Diff"] > 3]
+            high_age_diff = normal_matches[
+                normal_matches["Age_Diff"] > 1
+            ]  # Now max 1 year
             if not high_age_diff.empty:
                 warnings.append(f"{len(high_age_diff)} {t('warning_high_age')}")
 
@@ -1547,9 +1515,10 @@ with tab6:
         st.warning("No matches to display. Generate pairings first.")
     else:
         matches_df = st.session_state["matches"]
+        special_matches_df = st.session_state.get("special_matches", pd.DataFrame())
 
         # Interactive bracket
-        display_interactive_bracket(matches_df)
+        display_interactive_bracket(matches_df, special_matches_df)
 
         # Fallback: show current session data
         if not st.session_state["fighters_df"].empty:

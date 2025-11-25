@@ -157,10 +157,14 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
     return fighters
 
 
-def is_valid_pair(f1: Fighter, f2: Fighter) -> bool:
+def is_valid_pair(f1: Fighter, f2: Fighter, strict_age: bool = True) -> bool:
     """Check hard constraints for pairing."""
     # Same gender (already grouped)
     if f1.gender != f2.gender:
+        return False
+
+    # Age difference check (never more than 1 year apart)
+    if strict_age and abs(f1.age - f2.age) > 1:
         return False
 
     # Different club
@@ -221,12 +225,13 @@ def calculate_pair_score(f1: Fighter, f2: Fighter) -> float:
     return score
 
 
-def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Perform greedy pairing of fighters.
 
     Returns:
-        matches_df: DataFrame with paired fighters
+        normal_matches_df: DataFrame with normal paired fighters
+        special_matches_df: DataFrame with special pairs (large age/weight differences)
         unmatched_df: DataFrame with unpaired fighters
     """
     if df.empty:
@@ -310,23 +315,103 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
             if f.index not in paired_indices:
                 unmatched.append(f)
 
+    # Try to pair remaining unmatched fighters with relaxed constraints
+    special_matches = []
+    remaining_unmatched = []
+
+    if unmatched:
+        # Sort unmatched by age
+        unmatched.sort(key=lambda f: f.age)
+
+        paired_indices = set()
+        for i, f1 in enumerate(unmatched):
+            if f1.index in paired_indices:
+                continue
+
+            best_pair = None
+            best_score = float("inf")
+
+            for j, f2 in enumerate(unmatched):
+                if i == j or f2.index in paired_indices:
+                    continue
+
+                if is_valid_pair(f1, f2, strict_age=False):  # Relaxed age check
+                    score = calculate_pair_score(f1, f2)
+                    if score < best_score:
+                        best_score = score
+                        best_pair = f2
+
+            if best_pair:
+                match_id = len(matches) + len(special_matches) + 1
+                match = {
+                    "Match_ID": match_id,
+                    "Red_Corner": f1.name,
+                    "Red_Club": f1.club,
+                    "Red_Weight": f">={f1.weight_max}"
+                    if f1.weight_min <= 0 or f1.weight_min == f1.weight_max
+                    else f"{f1.weight_min}-{f1.weight_max}",
+                    "Red_Age": f1.age,
+                    "Red_Record": f1.record,
+                    "Blue_Corner": best_pair.name,
+                    "Blue_Club": best_pair.club,
+                    "Blue_Weight": f">={best_pair.weight_max}"
+                    if best_pair.weight_min <= 0
+                    or best_pair.weight_min == best_pair.weight_max
+                    else f"{best_pair.weight_min}-{best_pair.weight_max}",
+                    "Blue_Age": best_pair.age,
+                    "Blue_Record": best_pair.record,
+                    "Weight_Diff": abs(
+                        (f1.weight_min + f1.weight_max) / 2
+                        - (best_pair.weight_min + best_pair.weight_max) / 2
+                    ),
+                    "Age_Diff": abs(f1.age - best_pair.age),
+                    "Gender": f1.gender,
+                    "Weight_Class": f1.weight_class,
+                    "Special_Pair": True,  # Mark as special pair
+                }
+                special_matches.append(match)
+                paired_indices.add(f1.index)
+                paired_indices.add(best_pair.index)
+
+        # Remaining truly unmatched
+        remaining_unmatched = [f for f in unmatched if f.index not in paired_indices]
+
     matches_df = pd.DataFrame(matches)
-    # Ensure sequential pair numbers
-    matches_df["Match_ID"] = range(1, len(matches_df) + 1)
+    special_matches_df = pd.DataFrame(special_matches)
+
+    # Combine and renumber all pairs
+    if not special_matches_df.empty:
+        all_matches = pd.concat([matches_df, special_matches_df], ignore_index=True)
+        all_matches["Match_ID"] = range(1, len(all_matches) + 1)
+
+        # Split back
+        normal_matches = all_matches[all_matches["Special_Pair"] != True].drop(
+            columns=["Special_Pair"], errors="ignore"
+        )
+        special_matches_final = all_matches[all_matches["Special_Pair"] == True].drop(
+            columns=["Special_Pair"], errors="ignore"
+        )
+    else:
+        matches_df["Match_ID"] = range(1, len(matches_df) + 1)
+        normal_matches = matches_df
+        special_matches_final = special_matches_df
+
     unmatched_df = pd.DataFrame(
         [
             {
                 "Name": f.name,
                 "Gender": f.gender,
                 "Age": f.age,
-                "Weight": f"{f.weight_min}-{f.weight_max}",
+                "Weight": f"{f.weight_min}-{f.weight_max}"
+                if f.weight_min != f.weight_max
+                else f">={f.weight_max}",
                 "Club": f.club,
                 "Trainer": f.trainer,
                 "Record": f.record,
-                "Weight_Class": f.weight_class,
+                "Class": f.class_level,
             }
-            for f in unmatched
+            for f in remaining_unmatched
         ]
     )
 
-    return matches_df, unmatched_df
+    return normal_matches, special_matches_final, unmatched_df

@@ -20,7 +20,7 @@ def test_gender_separation():
         }
     )
 
-    matches, unmatched = pair_fighters(df)
+    matches, special, unmatched = pair_fighters(df)
 
     # Should have 2 matches: F vs F, M vs M
     assert len(matches) == 2
@@ -49,7 +49,7 @@ def test_same_club_prevention():
         }
     )
 
-    matches, unmatched = pair_fighters(df)
+    matches, special, unmatched = pair_fighters(df)
 
     # Should have 1 match (Alice and Charlie), Bob unmatched
     assert len(matches) == 1
@@ -78,7 +78,7 @@ def test_odd_number_unmatched():
         }
     )
 
-    matches, unmatched = pair_fighters(df)
+    matches, special, unmatched = pair_fighters(df)
 
     assert len(matches) == 1
     assert len(unmatched) == 1
@@ -101,7 +101,7 @@ def test_weight_tolerance():
         }
     )
 
-    matches, unmatched = pair_fighters(df)
+    matches, special, unmatched = pair_fighters(df)
 
     assert len(matches) == 1
     assert len(unmatched) == 0
@@ -127,7 +127,7 @@ def test_weight_tolerance_exceeded():
         }
     )
 
-    matches, unmatched = pair_fighters(df)
+    matches, special, unmatched = pair_fighters(df)
 
     # A and C should pair (0.5kg diff), B unmatched
     assert len(matches) == 1
