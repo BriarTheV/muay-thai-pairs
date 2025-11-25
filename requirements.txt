@@ -5,3 +5,4 @@ odfpy>=1.4.0
 fpdf>=1.7.0
 supabase>=2.0.0
 st-gsheets-connection>=0.1.0
+streamlit-elements==0.1.*
