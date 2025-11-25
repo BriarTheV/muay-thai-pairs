@@ -131,26 +131,26 @@ def render_pairing_tab():
 
         # Add subgroup pairing override
         allow_subgroup_pairings = st.checkbox(
-            "Allow different subgroups from same club to pair",
+            t("allow_subgroup_pairings"),
             value=True,  # Default enabled for this tournament
-            help="Allows fighters from 'Тутаев / Пламя (ФК)' and 'Тутаев / Пламя (ПБ)' to pair",
+            help=t("subgroup_pairings_help"),
         )
 
         # Add sorting strategy selection
         sort_strategy = st.radio(
-            "Pairing Priority",
+            t("pairing_priority"),
             ["quality", "quantity"],
             index=1,  # Default to quantity for max pairings
             format_func=lambda x: {
-                "quality": "Optimize for Match Quality (Elite First)",
-                "quantity": "Optimize for Maximum Pairs (Fair Distribution)",
+                "quality": t("optimize_quality"),
+                "quantity": t("optimize_quantity"),
             }[x],
-            help="Quality: Prioritizes experienced fighters for best matches\nQuantity: Tries to pair as many fighters as possible",
+            help=t("pairing_help_text"),
         )
 
         # Club parsing preview
-        with st.expander("Club Parsing Preview", expanded=False):
-            st.write("Club hierarchy parsing for conflict checking:")
+        with st.expander(t("club_parsing_expander"), expanded=False):
+            st.write(t("club_parsing_preview"))
             unique_clubs = df["Club"].unique()
             club_preview = []
             for club in unique_clubs[:10]:  # Show first 10
@@ -200,7 +200,7 @@ def render_pairing_tab():
         # Statistics
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Total Matches", len(matches_df))
+            st.metric(t("total_matches"), len(matches_df))
         with col2:
             avg_weight_diff = (
                 matches_df["Weight_Diff"].mean() if not matches_df.empty else 0
@@ -208,7 +208,7 @@ def render_pairing_tab():
             st.metric(t("avg_weight_diff"), f"{avg_weight_diff:.2f} {t('kg')}")
         with col3:
             st.metric(
-                "Unmatched", len(st.session_state.get("unmatched", pd.DataFrame()))
+                t("unmatched"), len(st.session_state.get("unmatched", pd.DataFrame()))
             )
 
         # Warnings

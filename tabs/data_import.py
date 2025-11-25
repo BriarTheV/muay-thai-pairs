@@ -131,7 +131,7 @@ def render_data_import_tab():
                         )
                     else:
                         # Required columns
-                        st.subheader("Required Columns")
+                        st.subheader(t("required_columns"))
                         col1, col2, col3 = st.columns(3)
                         with col1:
                             name_col = st.selectbox(
@@ -207,7 +207,7 @@ def render_data_import_tab():
                             st.stop()  # Don't proceed with import
 
                         # Show mapping preview
-                        st.subheader("Column Mapping Preview")
+                        st.subheader(t("column_mapping_preview"))
                         mapping_df = pd.DataFrame(
                             list(column_mapping.items()),
                             columns=["File Column", "Standard Name"],

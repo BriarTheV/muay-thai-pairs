@@ -68,7 +68,7 @@ def display_bracket_round(bracket: "TournamentBracket", round_num: int):
     )
 
     if not round_matches:
-        st.info("No matches in this round")
+        st.info(t("no_matches_round"))
         return
 
     # Display matches with enhanced styling
@@ -621,7 +621,7 @@ def render_tournament_bracket_tab():
         st.session_state.get("fighters_df") is None
         or st.session_state["fighters_df"].empty
     ):
-        st.warning("No fighter data available. Import fighters first.")
+        st.warning(t("no_fighter_data"))
     else:
         fighters_df = st.session_state["fighters_df"]
 
@@ -706,7 +706,7 @@ def render_tournament_bracket_tab():
                 st.metric("Status", status)
 
             # Display current matches and allow result entry
-            st.subheader("Round-Robin Matches")
+            st.subheader(t("round_robin_matches"))
 
             if not tournament.completed:
                 # Show pending matches
@@ -717,7 +717,7 @@ def render_tournament_bracket_tab():
                 ]
 
                 if pending_matches:
-                    st.write("Select a match to record the result:")
+                    st.write(t("select_match_result"))
 
                     # Display matches in a grid
                     cols = st.columns(min(3, len(pending_matches)))
@@ -749,12 +749,12 @@ def render_tournament_bracket_tab():
                                 tournament.record_result(match_idx, winner)
                                 st.rerun()
                 else:
-                    st.success("All matches completed!")
+                    st.success(t("all_matches_completed"))
             else:
-                st.success("🏆 Tournament Completed!")
+                st.success(t("tournament_completed"))
 
             # Display standings
-            st.subheader("Current Standings")
+            st.subheader(t("current_standings"))
             standings = tournament.get_standings()
 
             standings_df = pd.DataFrame(standings)
@@ -788,7 +788,7 @@ def render_tournament_bracket_tab():
 
         # Tournament History Section
         st.markdown("---")
-        st.subheader("Tournament History")
+        st.subheader(t("tournament_history"))
 
         # Initialize tournament history if not exists
         if "tournament_history" not in st.session_state:
@@ -826,13 +826,30 @@ def render_tournament_bracket_tab():
                     ].results.copy(),
                 }
                 st.session_state["tournament_history"].append(tournament_data)
-                st.success("Tournament saved to history!")
+                st.success(t("tournament_saved"))
+            elif (
+                tournament_format == "Round-Robin"
+                and st.session_state["round_robin_tournament"].completed
+            ):
+                tournament_data = {
+                    "format": "Round-Robin",
+                    "date": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"),
+                    "fighters_count": len(fighters_df),
+                    "standings": st.session_state[
+                        "round_robin_tournament"
+                    ].get_standings(),
+                    "results": st.session_state[
+                        "round_robin_tournament"
+                    ].results.copy(),
+                }
+                st.session_state["tournament_history"].append(tournament_data)
+                st.success(t("tournament_saved"))
             else:
-                st.warning("Complete the tournament first before saving to history.")
+                st.warning(t("complete_tournament_first"))
 
         # Display tournament history
         if st.session_state["tournament_history"]:
-            st.write("Previous Tournaments:")
+            st.write(t("previous_tournaments"))
             for i, hist_tournament in enumerate(
                 reversed(st.session_state["tournament_history"][-5:])
             ):  # Show last 5
@@ -848,22 +865,20 @@ def render_tournament_bracket_tab():
                             ]
                         )
                     else:
-                        st.write("Single-Elimination tournament completed")
+                        st.write(t("single_elim_completed"))
                         if hist_tournament.get("winners"):
                             final_winner = (
                                 list(hist_tournament["winners"].values())[-1]
                                 if hist_tournament["winners"]
                                 else "Unknown"
                             )
-                            st.write(f"🏆 Champion: {final_winner}")
+                            st.write(f"{t('champion')} {final_winner}")
         else:
-            st.info(
-                "No tournament history yet. Complete and save tournaments to see them here."
-            )
+            st.info(t("no_tournament_history"))
 
         # Tournament Statistics Section
         st.markdown("---")
-        st.subheader("📊 Tournament Statistics")
+        st.subheader(t("tournament_statistics"))
 
         if st.session_state["tournament_history"]:
             total_tournaments = len(st.session_state["tournament_history"])
@@ -888,7 +903,7 @@ def render_tournament_bracket_tab():
 
             # Fighter performance across all tournaments
             if st.session_state["tournament_history"]:
-                st.subheader("🏅 All-Time Fighter Performance")
+                st.subheader(t("all_time_performance"))
 
                 fighter_stats = {}
 
@@ -955,6 +970,6 @@ def render_tournament_bracket_tab():
                         use_container_width=True,
                     )
                 else:
-                    st.info("No fighter statistics available yet.")
+                    st.info(t("no_fighter_stats"))
         else:
-            st.info("Complete and save tournaments to see statistics.")
+            st.info(t("complete_save_tournaments"))
