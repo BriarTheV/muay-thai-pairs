@@ -34,10 +34,12 @@ def find_best_column(available_columns: list, field_type: str) -> int:
     return None  # No match found
 
 
-def t(key):
-    """Translation function"""
+def t(key, default=None):
+    """Translation function with optional fallback"""
     lang = st.session_state.get("language", "ru")
-    return translations[lang].get(key, key)
+    if default is None:
+        default = key
+    return translations[lang].get(key, default)
 
 
 def render_data_import_tab():

@@ -14,10 +14,12 @@ from tabs import (
 )
 
 
-def t(key):
-    """Translation function"""
+def t(key, default=None):
+    """Translation function with optional fallback"""
     lang = st.session_state.get("language", "ru")
-    return translations[lang].get(key, key)
+    if default is None:
+        default = key
+    return translations[lang].get(key, default)
 
 
 def apply_global_theme():

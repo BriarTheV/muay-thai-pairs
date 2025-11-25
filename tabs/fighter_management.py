@@ -4,10 +4,12 @@ from utils.data_loader import get_weight_class
 from utils.translations import translations
 
 
-def t(key):
-    """Translation function"""
+def t(key, default=None):
+    """Translation function with optional fallback"""
     lang = st.session_state.get("language", "ru")
-    return translations[lang].get(key, key)
+    if default is None:
+        default = key
+    return translations[lang].get(key, default)
 
 
 def render_fighter_management_tab():
