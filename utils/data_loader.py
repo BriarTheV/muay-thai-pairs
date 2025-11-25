@@ -241,14 +241,16 @@ def validate_fighter_dataframe(df: pd.DataFrame) -> Tuple[Optional[pd.DataFrame]
 
         # Validate Class column
         if "Class" in df.columns:
-            df["Class"] = df["Class"].astype(str).str.upper().str.strip()
-            valid_classes = ["A", "B", "C", ""]
-            invalid_mask = ~df["Class"].isin(valid_classes)
+            df["Class"] = df["Class"].astype(str).str.strip()
+            # Accept single letters (latin or cyrillic) or empty
+            valid_mask = df["Class"].str.match(r'^(?:[A-Za-zА-Яа-я]|)$')
+            invalid_mask = ~valid_mask
             if invalid_mask.any():
                 invalid_rows = df[invalid_mask].index.tolist()
+                invalid_values = df.loc[invalid_mask, "Class"].unique().tolist()
                 return (
                     None,
-                    f"Invalid class values found. Use A, B, C, or leave empty. Invalid rows: {invalid_rows}",
+                    f"Invalid class values found: {invalid_values}. Use single letters or leave empty. Invalid rows: {invalid_rows}",
                 )
         else:
             df["Class"] = ""
