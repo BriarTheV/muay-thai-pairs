@@ -23,28 +23,133 @@ from utils.auth import logout, get_current_user
 from utils.translations import translations
 
 
+def generate_matches_table(matches_df: pd.DataFrame) -> str:
+    """Generate HTML table for matches display with two rows per pair, grouped by weight class."""
+    html = """
+    <style>
+        .matches-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: Arial, sans-serif;
+            margin-bottom: 20px;
+        }
+        .matches-table th, .matches-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .matches-table th {
+            background-color: #f2f2f2;
+        }
+        .weight-class-header {
+            background-color: #d4edda;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .pair-header {
+            background-color: #e8f4f8;
+            font-weight: bold;
+        }
+        .red-corner {
+            background-color: #ffe6e6;
+        }
+        .blue-corner {
+            background-color: #e6f0ff;
+        }
+    </style>
+    """
+
+    # Group by weight class
+    if "Weight_Class" in matches_df.columns:
+        grouped = matches_df.groupby("Weight_Class")
+    else:
+        grouped = [("All Classes", matches_df)]
+
+    for class_name, class_matches in grouped:
+        # Sort by average age
+        class_matches = class_matches.copy()
+        class_matches["Avg_Age"] = (
+            class_matches["Red_Age"] + class_matches["Blue_Age"]
+        ) / 2
+        class_matches = class_matches.sort_values("Avg_Age")
+
+        html += f"<h3>Weight Class: {class_name}</h3>"
+        html += """
+        <table class="matches-table">
+            <tr>
+                <th>Pair</th>
+                <th>Fighter</th>
+                <th>Club</th>
+                <th>Weight</th>
+                <th>Age</th>
+                <th>Record</th>
+            </tr>
+        """
+
+        for idx, match in class_matches.iterrows():
+            pair_num = match.get("Match_ID", idx + 1)
+            html += f"""
+            <tr class="pair-header">
+                <td rowspan="2">{pair_num}</td>
+                <td class="red-corner">{match["Red_Corner"]}</td>
+                <td class="red-corner">{match["Red_Club"]}</td>
+                <td class="red-corner">{match["Red_Weight"]}</td>
+                <td class="red-corner">{match["Red_Age"]}</td>
+                <td class="red-corner">{match["Red_Record"]}</td>
+            </tr>
+            <tr>
+                <td class="blue-corner">{match["Blue_Corner"]}</td>
+                <td class="blue-corner">{match["Blue_Club"]}</td>
+                <td class="blue-corner">{match["Blue_Weight"]}</td>
+                <td class="blue-corner">{match["Blue_Age"]}</td>
+                <td class="blue-corner">{match["Blue_Record"]}</td>
+            </tr>
+            """
+
+        html += "</table>"
+
+    return html
+
+
 def generate_tournament_bracket(matches_df: pd.DataFrame) -> str:
-    """Generate HTML for tournament bracket display."""
+    """Generate HTML for tournament bracket display with weight class organization."""
     html = """
     <style>
         .bracket {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
             font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .weight-class-section {
+            margin-bottom: 40px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .weight-class-title {
+            background-color: #d4edda;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            font-weight: bold;
         }
         .round {
-            display: flex;
-            flex-direction: column;
-            margin: 20px;
+            display: inline-block;
+            vertical-align: top;
+            margin-right: 40px;
+        }
+        .round h4 {
+            text-align: center;
+            margin-bottom: 10px;
         }
         .match {
             border: 2px solid #333;
             border-radius: 8px;
             padding: 10px;
-            margin: 5px 0;
+            margin: 10px 0;
             background: #f9f9f9;
             min-width: 200px;
+            min-height: 60px;
         }
         .fighter {
             padding: 5px;
@@ -53,31 +158,72 @@ def generate_tournament_bracket(matches_df: pd.DataFrame) -> str:
         .fighter:last-child {
             border-bottom: none;
         }
-        .winner {
-            background: #e8f5e8;
-            font-weight: bold;
+        .placeholder {
+            color: #999;
+            font-style: italic;
         }
     </style>
     <div class="bracket">
-        <h2>Single Elimination Tournament</h2>
-        <div class="round">
-            <h3>Round 1</h3>
+        <h2>🏆 Tournament Brackets</h2>
     """
 
-    for idx, match in matches_df.iterrows():
+    # Group by weight class
+    if "Weight_Class" in matches_df.columns:
+        grouped = matches_df.groupby("Weight_Class")
+    else:
+        grouped = [("All Classes", matches_df)]
+
+    for class_name, class_matches in grouped:
+        # Sort by average age
+        class_matches = class_matches.copy()
+        class_matches["Avg_Age"] = (
+            class_matches["Red_Age"] + class_matches["Blue_Age"]
+        ) / 2
+        class_matches = class_matches.sort_values("Avg_Age")
+
         html += f"""
-            <div class="match">
-                <div class="fighter">{match["Red_Corner"]} ({match["Red_Club"]})</div>
-                <div class="fighter">vs</div>
-                <div class="fighter">{match["Blue_Corner"]} ({match["Blue_Club"]})</div>
-            </div>
+        <div class="weight-class-section">
+            <div class="weight-class-title">Weight Class: {class_name}</div>
+            <div class="round">
+                <h4>Round 1</h4>
         """
 
-    html += """
-        </div>
-    </div>
-    """
+        for idx, match in class_matches.iterrows():
+            html += f"""
+                <div class="match">
+                    <div class="fighter">{match["Red_Corner"]} ({match["Red_Club"]})</div>
+                    <div class="fighter">vs</div>
+                    <div class="fighter">{match["Blue_Corner"]} ({match["Blue_Club"]})</div>
+                </div>
+            """
 
+        # Add subsequent rounds with placeholders
+        num_matches = len(class_matches)
+        round_num = 2
+        while num_matches > 1:
+            num_matches = (num_matches + 1) // 2  # Ceiling division
+            html += f"""
+            </div>
+            <div class="round">
+                <h4>Round {round_num}</h4>
+            """
+            for i in range(num_matches):
+                html += """
+                <div class="match">
+                    <div class="fighter placeholder">Winner Match {i*2+1}</div>
+                    <div class="fighter">vs</div>
+                    <div class="fighter placeholder">Winner Match {i*2+2}</div>
+                </div>
+                """
+
+            round_num += 1
+
+        html += """
+            </div>
+        </div>
+        """
+
+    html += "</div>"
     return html
 
 
@@ -633,7 +779,8 @@ with tab2:
         if not st.session_state["matches"].empty:
             matches_df = st.session_state["matches"]
             st.subheader(t("header_matches"))
-            st.dataframe(matches_df)
+            matches_html = generate_matches_table(matches_df)
+            st.components.v1.html(matches_html, height=400)
 
             # Statistics
             col1, col2, col3 = st.columns(3)

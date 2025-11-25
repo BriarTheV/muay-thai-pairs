@@ -165,12 +165,16 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
                     "Match_ID": match_id,
                     "Red_Corner": f1.name,
                     "Red_Club": f1.club,
-                    "Red_Weight": f"{f1.weight_min}-{f1.weight_max}",
+                    "Red_Weight": f">={f1.weight_max}"
+                    if f1.weight_min == f1.weight_max
+                    else f"{f1.weight_min}-{f1.weight_max}",
                     "Red_Age": f1.age,
                     "Red_Record": f1.record,
                     "Blue_Corner": best_pair.name,
                     "Blue_Club": best_pair.club,
-                    "Blue_Weight": f"{best_pair.weight_min}-{best_pair.weight_max}",
+                    "Blue_Weight": f">={best_pair.weight_max}"
+                    if best_pair.weight_min == best_pair.weight_max
+                    else f"{best_pair.weight_min}-{best_pair.weight_max}",
                     "Blue_Age": best_pair.age,
                     "Blue_Record": best_pair.record,
                     "Weight_Diff": abs(
