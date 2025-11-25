@@ -57,11 +57,11 @@ def display_bracket_round(bracket: "TournamentBracket", round_num: int):
     st.markdown(
         f"""
     <div style="text-align: center; margin-bottom: 20px;">
-        <h2>🏆 Round {round_num + 1} of {total_rounds}</h2>
-        <div style="background: #e9ecef; border-radius: 10px; height: 8px; width: 100%; max-width: 300px; margin: 10px auto;">
-            <div style="background: linear-gradient(90deg, #28a745 {progress * 100}%, #6c757d {progress * 100}%); height: 100%; border-radius: 10px;"></div>
+        <h2 style="color: var(--text-primary);">🏆 Round {round_num + 1} of {total_rounds}</h2>
+        <div style="background: var(--tertiary-bg); border-radius: 10px; height: 8px; width: 100%; max-width: 300px; margin: 10px auto;">
+            <div style="background: linear-gradient(90deg, var(--accent-success) {progress * 100}%, var(--accent-secondary) {progress * 100}%); height: 100%; border-radius: 10px;"></div>
         </div>
-        <p style="color: #6c757d; margin: 5px 0;">{round_num + 1}/{total_rounds} rounds completed</p>
+        <p style="color: var(--text-secondary); margin: 5px 0;">{round_num + 1}/{total_rounds} rounds completed</p>
     </div>
     """,
         unsafe_allow_html=True,
@@ -81,21 +81,21 @@ def display_bracket_round(bracket: "TournamentBracket", round_num: int):
 
             # Determine match status styling
             if current_winner:
-                border_color = "#28a745"  # Green for completed
-                bg_color = "#d4edda"  # Light green background
+                border_color = "var(--accent-success)"  # Green for completed
+                bg_color = "var(--secondary-bg)"  # Theme background
                 status_icon = "✅"
             elif fighter1 == "BYE" or fighter2 == "BYE":
-                border_color = "#ffc107"  # Yellow for bye
-                bg_color = "#fff3cd"  # Light yellow background
+                border_color = "var(--accent-warning)"  # Yellow for bye
+                bg_color = "var(--secondary-bg)"  # Theme background
                 status_icon = "🚫"
             else:
-                border_color = "#007bff"  # Blue for pending
-                bg_color = "#e7f3ff"  # Light blue background
+                border_color = "var(--accent-primary)"  # Blue for pending
+                bg_color = "var(--primary-bg)"  # Theme background
                 status_icon = "⏳"
 
             st.markdown(
                 f"""
-            <div style="border: 3px solid {border_color}; border-radius: 12px; padding: 20px; margin: 15px 0; background: {bg_color}; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="border: 3px solid {border_color}; border-radius: var(--radius-large); padding: 20px; margin: 15px 0; background: {bg_color}; box-shadow: var(--shadow-medium); color: var(--text-primary);">
                 <div style="text-align: center; margin-bottom: 15px;">
                     <h4 style="margin: 0; color: {border_color};">{status_icon} Match {i + 1}</h4>
                 </div>
@@ -106,9 +106,9 @@ def display_bracket_round(bracket: "TournamentBracket", round_num: int):
             if fighter1 == "BYE":
                 st.markdown(
                     f"""
-                <div style="text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px; margin: 10px 0;">
-                    <strong style="color: #28a745;">{fighter2}</strong><br>
-                    <small style="color: #6c757d;">BYE (Automatic Advance)</small>
+                <div style="text-align: center; padding: 10px; background: var(--secondary-bg); border-radius: var(--radius-medium); margin: 10px 0; border: 1px solid var(--border-color);">
+                    <strong style="color: var(--accent-success);">{fighter2}</strong><br>
+                    <small style="color: var(--text-secondary);">BYE (Automatic Advance)</small>
                 </div>
                 """,
                     unsafe_allow_html=True,
@@ -118,9 +118,9 @@ def display_bracket_round(bracket: "TournamentBracket", round_num: int):
             elif fighter2 == "BYE":
                 st.markdown(
                     f"""
-                <div style="text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px; margin: 10px 0;">
-                    <strong style="color: #28a745;">{fighter1}</strong><br>
-                    <small style="color: #6c757d;">BYE (Automatic Advance)</small>
+                <div style="text-align: center; padding: 10px; background: var(--secondary-bg); border-radius: var(--radius-medium); margin: 10px 0; border: 1px solid var(--border-color);">
+                    <strong style="color: var(--accent-success);">{fighter1}</strong><br>
+                    <small style="color: var(--text-secondary);">BYE (Automatic Advance)</small>
                 </div>
                 """,
                     unsafe_allow_html=True,
@@ -132,15 +132,25 @@ def display_bracket_round(bracket: "TournamentBracket", round_num: int):
                 col1, col2 = st.columns(2)
                 with col1:
                     fighter_style = (
-                        "color: #dc3545; font-weight: bold;"
+                        f"color: var(--accent-danger); font-weight: bold;"
                         if current_winner == fighter1
-                        else "color: #6c757d;"
+                        else f"color: var(--text-secondary);"
+                    )
+                    border_color = (
+                        "var(--accent-success)"
+                        if current_winner == fighter1
+                        else "var(--border-color)"
+                    )
+                    winner_badge = (
+                        f'<div style="color: var(--accent-success); font-weight: bold; margin-top: 5px;">🏆 WINNER</div>'
+                        if current_winner == fighter1
+                        else ""
                     )
                     st.markdown(
                         f"""
-                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; margin: 5px; border: 2px solid {"#28a745" if current_winner == fighter1 else "#e9ecef"};">
+                    <div style="text-align: center; padding: 10px; background: var(--primary-bg); border-radius: var(--radius-medium); margin: 5px; border: 2px solid {border_color}; color: var(--text-primary);">
                         <div style="font-size: 1.2em; {fighter_style}">🔴 {fighter1}</div>
-                        {'<div style="color: #28a745; font-weight: bold; margin-top: 5px;">🏆 WINNER</div>' if current_winner == fighter1 else ""}
+                        {winner_badge}
                     </div>
                     """,
                         unsafe_allow_html=True,
@@ -148,15 +158,25 @@ def display_bracket_round(bracket: "TournamentBracket", round_num: int):
 
                 with col2:
                     fighter_style = (
-                        "color: #007bff; font-weight: bold;"
+                        f"color: var(--accent-primary); font-weight: bold;"
                         if current_winner == fighter2
-                        else "color: #6c757d;"
+                        else f"color: var(--text-secondary);"
+                    )
+                    border_color = (
+                        "var(--accent-success)"
+                        if current_winner == fighter2
+                        else "var(--border-color)"
+                    )
+                    winner_badge = (
+                        f'<div style="color: var(--accent-success); font-weight: bold; margin-top: 5px;">🏆 WINNER</div>'
+                        if current_winner == fighter2
+                        else ""
                     )
                     st.markdown(
                         f"""
-                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; margin: 5px; border: 2px solid {"#28a745" if current_winner == fighter2 else "#e9ecef"};">
+                    <div style="text-align: center; padding: 10px; background: var(--primary-bg); border-radius: var(--radius-medium); margin: 5px; border: 2px solid {border_color}; color: var(--text-primary);">
                         <div style="font-size: 1.2em; {fighter_style}">🔵 {fighter2}</div>
-                        {'<div style="color: #28a745; font-weight: bold; margin-top: 5px;">🏆 WINNER</div>' if current_winner == fighter2 else ""}
+                        {winner_badge}
                     </div>
                     """,
                         unsafe_allow_html=True,
@@ -192,6 +212,60 @@ def display_interactive_bracket(matches_df: pd.DataFrame):
     """Display interactive Olympic-style tournament bracket with improved readability."""
     winners = st.session_state.get("bracket_winners", {})
     current_round = st.session_state.get("current_round", 1)
+
+    # Inject CSS for interactive bracket
+    st.markdown(
+        """
+    <style>
+    .tournament-header {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .tournament-header h2 {
+        color: var(--text-primary);
+        margin-bottom: 5px;
+    }
+    .tournament-header p {
+        color: var(--text-secondary);
+        margin: 0;
+    }
+    .match-card {
+        border: 2px solid var(--border-color);
+        border-radius: var(--radius-large);
+        padding: 15px;
+        margin: 10px 0;
+        background: var(--primary-bg);
+        box-shadow: var(--shadow-light);
+        color: var(--text-primary);
+    }
+    .fighter-name {
+        font-weight: bold;
+        margin: 5px 0;
+        color: var(--text-primary);
+    }
+    .winner-badge {
+        background: var(--accent-success);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        margin-left: 10px;
+    }
+    .bye-badge {
+        background: var(--accent-warning);
+        color: var(--text-primary);
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        margin-left: 10px;
+    }
+    .round-section {
+        margin-bottom: 30px;
+    }
+    </style>
+    """,
+        unsafe_allow_html=True,
+    )
 
     # Group by weight class
     if "Weight_Class" in matches_df.columns:
@@ -503,22 +577,25 @@ def generate_tournament_bracket(matches_df: pd.DataFrame) -> str:
     html = f"""
     <style>
         .bracket {{
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 20px;
+            color: var(--text-primary);
         }}
         .weight-class-section {{
             margin-bottom: 40px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-large);
             padding: 20px;
+            background: var(--secondary-bg);
         }}
         .weight-class-title {{
-            background-color: #d4edda;
+            background-color: var(--weight-header-bg, var(--tertiary-bg));
             padding: 10px;
-            border-radius: 5px;
+            border-radius: var(--radius-medium);
             margin-bottom: 20px;
             font-size: 1.2em;
             font-weight: bold;
+            color: var(--text-primary);
         }}
         .round {{
             display: inline-block;
@@ -528,25 +605,29 @@ def generate_tournament_bracket(matches_df: pd.DataFrame) -> str:
         .round h4 {{
             text-align: center;
             margin-bottom: 10px;
+            color: var(--text-primary);
         }}
         .match {{
-            border: 2px solid #333;
-            border-radius: 8px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-large);
             padding: 10px;
             margin: 10px 0;
-            background: #f9f9f9;
+            background: var(--primary-bg);
             min-width: 200px;
             min-height: 60px;
+            color: var(--text-primary);
+            box-shadow: var(--shadow-light);
         }}
         .fighter {{
             padding: 5px;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text-primary);
         }}
         .fighter:last-child {{
             border-bottom: none;
         }}
         .placeholder {{
-            color: #999;
+            color: var(--text-muted);
             font-style: italic;
         }}
     </style>
