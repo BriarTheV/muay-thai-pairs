@@ -10,38 +10,125 @@ def t(key):
     return translations[lang].get(key, key)
 
 
+def translate_weight_class(class_name):
+    """Translate weight class names to current language."""
+    if not class_name:
+        return class_name
+
+    # Create mapping from English names to translation keys
+    weight_class_map = {
+        "First Flyweight": "first_flyweight",
+        "Flyweight": "flyweight",
+        "Bantamweight": "bantamweight",
+        "Featherweight": "featherweight",
+        "Lightweight": "lightweight",
+        "Light Welterweight": "light_welterweight",
+        "Welterweight": "welterweight",
+        "Light Middleweight": "light_middleweight",
+        "Middleweight": "middleweight",
+        "Light Heavyweight": "light_heavyweight",
+        "Cruiserweight": "cruiserweight",
+        "Heavyweight": "heavyweight",
+        "Super Heavyweight": "super_heavyweight",
+    }
+
+    # Get the translation key for this class name
+    translation_key = weight_class_map.get(class_name.strip())
+    if translation_key:
+        return t(translation_key)
+    else:
+        return class_name  # Fallback to original name
+
+
 def generate_matches_table(matches_df: pd.DataFrame) -> str:
     """Generate HTML table for matches display with two rows per pair, grouped by weight class."""
     html = """
     <style>
+        :root {
+            --table-border: #ddd;
+            --header-bg: #f8f9fa;
+            --weight-header-bg: #e3f2fd;
+            --pair-header-bg: #f3e5f5;
+            --red-corner-bg: #ffebee;
+            --blue-corner-bg: #e3f2fd;
+            --text-color: #212529;
+            --header-text: #495057;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --table-border: #495057;
+                --header-bg: #343a40;
+                --weight-header-bg: #1e3a5f;
+                --pair-header-bg: #3a1f4a;
+                --red-corner-bg: #4a1c1c;
+                --blue-corner-bg: #1c3a4a;
+                --text-color: #f8f9fa;
+                --header-text: #adb5bd;
+            }
+        }
+
         .matches-table {
             width: 100%;
             border-collapse: collapse;
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin-bottom: 20px;
+            background-color: var(--header-bg);
+            color: var(--text-color);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+
         .matches-table th, .matches-table td {
-            border: 1px solid #ddd;
-            padding: 8px;
+            border: 1px solid var(--table-border);
+            padding: 12px;
             text-align: left;
+            vertical-align: top;
         }
+
         .matches-table th {
-            background-color: #f2f2f2;
+            background-color: var(--header-bg);
+            color: var(--header-text);
+            font-weight: 600;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
+
         .weight-class-header {
-            background-color: #d4edda;
+            background-color: var(--weight-header-bg) !important;
             font-weight: bold;
             font-size: 1.1em;
+            color: var(--text-color);
+            padding: 16px;
+            border-bottom: 2px solid var(--table-border);
         }
+
         .pair-header {
-            background-color: #e8f4f8;
-            font-weight: bold;
+            background-color: var(--pair-header-bg);
+            font-weight: 600;
+            color: var(--text-color);
         }
+
         .red-corner {
-            background-color: #ffe6e6;
+            background-color: var(--red-corner-bg);
+            color: var(--text-color);
         }
+
         .blue-corner {
-            background-color: #e6f0ff;
+            background-color: var(--blue-corner-bg);
+            color: var(--text-color);
+        }
+
+        .matches-table tbody tr:hover {
+            background-color: rgba(0,0,0,0.05);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .matches-table tbody tr:hover {
+                background-color: rgba(255,255,255,0.05);
+            }
         }
     </style>
     """
@@ -60,7 +147,8 @@ def generate_matches_table(matches_df: pd.DataFrame) -> str:
         ) / 2
         class_matches = class_matches.sort_values("Avg_Age")
 
-        html += f"<h3>{t('weight_class')}: {class_name}</h3>"
+        translated_class_name = translate_weight_class(class_name)
+        html += f"<h3>{t('weight_class')}: {translated_class_name}</h3>"
         html += f"""
         <table class="matches-table">
             <tr>
