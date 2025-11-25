@@ -62,7 +62,12 @@ def is_valid_pair(f1: Fighter, f2: Fighter) -> bool:
     if f1.trainer and f2.trainer and f1.trainer == f2.trainer:
         return False
 
-    # Weight compatibility check
+    # Weight class compatibility (takes precedence)
+    if f1.weight_class and f2.weight_class:
+        if f1.weight_class == f2.weight_class:
+            return True  # Classes match, allow pairing regardless of weight
+
+    # Weight compatibility check (fallback)
     # For single weights (min==max), use tolerance
     if f1.weight_min == f1.weight_max and f2.weight_min == f2.weight_max:
         if abs(f1.weight_min - f2.weight_min) > WEIGHT_TOLERANCE:
@@ -77,6 +82,10 @@ def is_valid_pair(f1: Fighter, f2: Fighter) -> bool:
 def calculate_pair_score(f1: Fighter, f2: Fighter) -> float:
     """Calculate soft score for pair quality (lower is better)."""
     score = 0
+
+    # Weight class match bonus (lower score is better)
+    if f1.weight_class and f2.weight_class and f1.weight_class == f2.weight_class:
+        score -= 20  # Significant bonus for class match
 
     # Weight range overlap penalty
     # Calculate overlap quality (prefer tighter overlaps)

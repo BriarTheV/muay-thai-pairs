@@ -23,6 +23,64 @@ from utils.auth import logout, get_current_user
 from utils.translations import translations
 
 
+def generate_tournament_bracket(matches_df: pd.DataFrame) -> str:
+    """Generate HTML for tournament bracket display."""
+    html = """
+    <style>
+        .bracket {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
+        .round {
+            display: flex;
+            flex-direction: column;
+            margin: 20px;
+        }
+        .match {
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 5px 0;
+            background: #f9f9f9;
+            min-width: 200px;
+        }
+        .fighter {
+            padding: 5px;
+            border-bottom: 1px solid #ddd;
+        }
+        .fighter:last-child {
+            border-bottom: none;
+        }
+        .winner {
+            background: #e8f5e8;
+            font-weight: bold;
+        }
+    </style>
+    <div class="bracket">
+        <h2>Single Elimination Tournament</h2>
+        <div class="round">
+            <h3>Round 1</h3>
+    """
+
+    for idx, match in matches_df.iterrows():
+        html += f"""
+            <div class="match">
+                <div class="fighter">{match["Red_Corner"]} ({match["Red_Club"]})</div>
+                <div class="fighter">vs</div>
+                <div class="fighter">{match["Blue_Corner"]} ({match["Blue_Club"]})</div>
+            </div>
+        """
+
+    html += """
+        </div>
+    </div>
+    """
+
+    return html
+
+
 def find_best_column(available_columns: list, field_type: str) -> int:
     """Find the best matching column index based on field type."""
     keywords_map = {
@@ -86,13 +144,14 @@ if "unmatched" not in st.session_state:
     st.session_state["unmatched"] = pd.DataFrame()
 
 # Create tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
     [
         t("tab_data"),
         t("tab_generate"),
         t("tab_manual"),
         t("tab_export"),
         "👥 Manage Fighters",
+        t("tab_bracket"),
     ]
 )
 
@@ -1096,6 +1155,18 @@ with tab5:
     except Exception as e:
         st.error(f"{t('db_conn_error')}: {str(e)}")
         st.info(t("supabase_config"))
+
+with tab6:
+    st.header("🏆 Tournament Bracket")
+
+    if st.session_state["matches"].empty:
+        st.warning("No matches to display. Generate pairings first.")
+    else:
+        matches_df = st.session_state["matches"]
+
+        # Generate bracket HTML
+        bracket_html = generate_tournament_bracket(matches_df)
+        st.components.v1.html(bracket_html, height=600)
 
         # Fallback: show current session data
         if not st.session_state["fighters_df"].empty:
