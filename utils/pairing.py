@@ -10,24 +10,50 @@ WEIGHT_TOLERANCE = 0.5  # kg
 AGE_GAP_WARNING = 2  # years for Juniors
 WEIGHT_GAP_PERCENT_WARNING = 5  # %
 
-# Official Muay Thai Weight Categories (kg)
-WEIGHT_CATEGORIES = {
-    "adult": [
-        {"name": "Первый наилегчайший вес", "min": 45, "max": 48},
-        {"name": "Наилегчайший вес", "min": 48, "max": 51},
-        {"name": "Легчайший вес", "min": 51, "max": 54},
-        {"name": "Полулегкий вес", "min": 54, "max": 57},
-        {"name": "Легкий вес", "min": 57, "max": 60},
-        {"name": "Первый полусредний вес", "min": 60, "max": 63.5},
-        {"name": "Второй полусредний вес", "min": 63.5, "max": 67},
-        {"name": "Первый средний вес", "min": 67, "max": 71},
-        {"name": "Средний вес", "min": 71, "max": 75},
-        {"name": "Полутяжелый вес", "min": 75, "max": 81},
-        {"name": "Первый тяжелый вес", "min": 81, "max": 86},
-        {"name": "Тяжелый вес", "min": 86, "max": 91},
-        {"name": "Супертяжелый вес", "min": 91, "max": float("inf")},
-    ]
-}
+# Official Muay Thai Weight Categories (kg) - Adults and Juniors
+WEIGHT_CLASSES_ADULT = [
+    {"name": "First Flyweight", "min": 45.0, "max": 48.0},
+    {"name": "Flyweight", "min": 48.0, "max": 51.0},
+    {"name": "Bantamweight", "min": 51.0, "max": 54.0},
+    {"name": "Featherweight", "min": 54.0, "max": 57.0},
+    {"name": "Lightweight", "min": 57.0, "max": 60.0},
+    {"name": "Light Welterweight", "min": 60.0, "max": 63.5},
+    {"name": "Welterweight", "min": 63.5, "max": 67.0},
+    {"name": "Light Middleweight", "min": 67.0, "max": 71.0},
+    {"name": "Middleweight", "min": 71.0, "max": 75.0},
+    {"name": "Light Heavyweight", "min": 75.0, "max": 81.0},
+    {"name": "Cruiserweight", "min": 81.0, "max": 86.0},
+    {"name": "Heavyweight", "min": 86.0, "max": 91.0},
+    {"name": "Super Heavyweight", "min": 91.0, "max": 999.0},  # 91+
+]
+
+
+# Age-based pairing rules for youths
+def get_max_diff_12_14(weight):
+    """Max weight difference for 12-14 year olds."""
+    if weight <= 60:
+        return 2.0
+    if weight <= 70:
+        return 3.0
+    if weight <= 80:
+        return 4.0
+    return 5.0  # Over 80kg
+
+
+def get_max_diff_15_16(weight):
+    """Max weight difference for 15-16 year olds."""
+    if weight <= 54:
+        return 2.0
+    if weight <= 66:
+        return 3.0
+    if weight <= 74:
+        return 4.0
+    if weight <= 79:
+        return 5.0
+    if weight <= 85:
+        return 6.0
+    return 99.0  # Over 85kg (open)
+
 
 # Age-based pairing rules for juniors
 JUNIOR_PAIRING_RULES = {
@@ -115,37 +141,30 @@ def parse_weight_range(weight_str: str) -> Tuple[float, float]:
         return (0, 999)
 
 
-def get_weight_difference_limit(age: int, weight: float) -> float:
-    """Get maximum allowed weight difference for pairing."""
-    age_group = get_age_group(age)
-    if age_group == "adult":
-        return WEIGHT_TOLERANCE
-
-    rules = JUNIOR_PAIRING_RULES[age_group]
-    for (min_w, max_w), limit in rules.items():
-        if min_w <= weight < max_w:
-            return limit
-
-    return WEIGHT_TOLERANCE  # fallback
+def get_weight_category(weight: float) -> str:
+    """Get weight category name for given weight."""
+    for cat in WEIGHT_CLASSES_ADULT:
+        if cat["min"] <= weight < cat["max"]:
+            return cat["name"]
+        if cat["name"] == "Super Heavyweight" and weight >= 91:
+            return cat["name"]
+    return None
 
 
 def create_fighters(df: pd.DataFrame) -> List[Fighter]:
     """Convert DataFrame to list of Fighter objects."""
     fighters = []
     for idx, row in df.iterrows():
-        weight_str = row.get("Weight", "")
-        weight_min, weight_max = parse_weight_range(weight_str)
-        weight_class = row.get(
-            "Weight Class", get_weight_class((weight_min + weight_max) / 2)
-        )
+        weight = float(row.get("Weight", 0))
+        weight_class = get_weight_category(weight)
 
         fighter = Fighter(
             index=idx,
             name=row["Name"],
             gender=row["Gender"],
             age=int(row["Age"]),
-            weight_min=weight_min,
-            weight_max=weight_max,
+            weight_min=weight,
+            weight_max=weight,
             club=row["Club"],
             trainer=row["Trainer"],
             record=int(row.get("Record", row.get("Total_Fights", 0))),
@@ -157,40 +176,53 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
     return fighters
 
 
-def is_valid_pair(f1: Fighter, f2: Fighter, strict_age: bool = True) -> bool:
-    """Check hard constraints for pairing."""
-    # Same gender (already grouped)
+def is_valid_pair(f1: Fighter, f2: Fighter) -> tuple[bool, str]:
+    """Check if two fighters can be paired based on official rules."""
+    # Basic safety checks
     if f1.gender != f2.gender:
-        return False
+        return False, "Gender mismatch"
 
-    # Age difference check (never more than 1 year apart)
-    if strict_age and abs(f1.age - f2.age) > 1:
-        return False
+    # Age gap check (>2 years invalid)
+    if abs(f1.age - f2.age) > 2:
+        return False, "Age gap too large"
 
     # Different club
     if f1.club and f2.club and f1.club == f2.club:
-        return False
+        return False, "Same club"
 
-    # Different trainer (optional strict mode, but for now always)
+    # Different trainer
     if f1.trainer and f2.trainer and f1.trainer == f2.trainer:
-        return False
+        return False, "Same trainer"
 
-    # Weight class compatibility (takes precedence)
-    if f1.weight_class and f2.weight_class:
-        if f1.weight_class == f2.weight_class:
-            return True  # Classes match, allow pairing regardless of weight
+    avg_weight = (f1.weight_min + f2.weight_min) / 2
+    weight_diff = abs(f1.weight_min - f2.weight_min)
 
-    # Weight compatibility check (fallback)
-    # Use age-based weight difference limits
-    weight_diff_limit = max(
-        get_weight_difference_limit(f1.age, f1.weight_min),
-        get_weight_difference_limit(f2.age, f2.weight_min),
-    )
+    # Youths 12-14
+    if 12 <= f1.age <= 14 and 12 <= f2.age <= 14:
+        max_allowed = get_max_diff_12_14(avg_weight)
+        if weight_diff <= max_allowed:
+            return True, "Valid 12-14 match"
+        else:
+            return False, f"Weight diff {weight_diff}kg exceeds limit {max_allowed}kg"
 
-    if abs(f1.weight_min - f2.weight_min) > weight_diff_limit:
-        return False
+    # Youths 15-16
+    elif 15 <= f1.age <= 16 and 15 <= f2.age <= 16:
+        max_allowed = get_max_diff_15_16(avg_weight)
+        if weight_diff <= max_allowed:
+            return True, "Valid 15-16 match"
+        else:
+            return False, f"Weight diff {weight_diff}kg exceeds limit {max_allowed}kg"
 
-    return True
+    # Juniors (17-18) & Adults (19+)
+    else:
+        # Must be in SAME weight category
+        cat1 = get_weight_category(f1.weight_min)
+        cat2 = get_weight_category(f2.weight_min)
+
+        if cat1 and cat1 == cat2:
+            return True, f"Match in {cat1}"
+
+        return False, f"Different categories: {cat1} vs {cat2}"
 
 
 def calculate_pair_score(f1: Fighter, f2: Fighter) -> float:
@@ -225,13 +257,12 @@ def calculate_pair_score(f1: Fighter, f2: Fighter) -> float:
     return score
 
 
-def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Perform greedy pairing of fighters.
+    Perform greedy pairing of fighters based on official rules.
 
     Returns:
-        normal_matches_df: DataFrame with normal paired fighters
-        special_matches_df: DataFrame with special pairs (large age/weight differences)
+        matches_df: DataFrame with paired fighters
         unmatched_df: DataFrame with unpaired fighters
     """
     if df.empty:
@@ -239,163 +270,74 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Data
 
     fighters = create_fighters(df)
 
-    # Sort fighters by age first, then by weight
-    fighters.sort(key=lambda f: (f.age, f.weight_min))
+    # Sort fighters by Gender, Age, Weight
+    fighters.sort(key=lambda f: (f.gender, f.age, f.weight_min))
 
     matches = []
     unmatched = []
 
-    # Group by gender and weight class
-    groups = {}
-    for f in fighters:
-        key = (f.gender, f.weight_class)
-        if key not in groups:
-            groups[key] = []
-        groups[key].append(f)
+    while len(fighters) > 1:
+        current_fighter = fighters.pop(0)  # Take the first one
+        best_opponent = None
+        best_opponent_idx = -1
 
-    match_id = 1
-
-    for (gender, weight_class), group in groups.items():
-        # Sort by record descending (higher experience first)
-        group.sort(key=lambda f: f.record, reverse=True)
-
-        paired_indices = set()
-
-        for i, f1 in enumerate(group):
-            if f1.index in paired_indices:
+        # Look for the first valid match
+        for i, opponent in enumerate(fighters):
+            # Skip same club
+            if (
+                current_fighter.club
+                and opponent.club
+                and current_fighter.club == opponent.club
+            ):
                 continue
 
-            best_pair = None
-            best_score = float("inf")
+            # Check if valid match
+            is_valid, reason = is_valid_pair(current_fighter, opponent)
 
-            for j, f2 in enumerate(group):
-                if i == j or f2.index in paired_indices:
-                    continue
+            if is_valid:
+                best_opponent = opponent
+                best_opponent_idx = i
+                break  # Found the first valid match (greedy approach)
 
-                if is_valid_pair(f1, f2):
-                    score = calculate_pair_score(f1, f2)
-                    if score < best_score:
-                        best_score = score
-                        best_pair = f2
+        if best_opponent:
+            # Create match
+            match = {
+                "Match_ID": len(matches) + 1,
+                "Red_Corner": current_fighter.name,
+                "Red_Club": current_fighter.club,
+                "Red_Weight": f">={current_fighter.weight_max}"
+                if current_fighter.weight_min <= 0
+                or current_fighter.weight_min == current_fighter.weight_max
+                else f"{current_fighter.weight_min}-{current_fighter.weight_max}",
+                "Red_Age": current_fighter.age,
+                "Red_Record": current_fighter.record,
+                "Blue_Corner": best_opponent.name,
+                "Blue_Club": best_opponent.club,
+                "Blue_Weight": f">={best_opponent.weight_max}"
+                if best_opponent.weight_min <= 0
+                or best_opponent.weight_min == best_opponent.weight_max
+                else f"{best_opponent.weight_min}-{best_opponent.weight_max}",
+                "Blue_Age": best_opponent.age,
+                "Blue_Record": best_opponent.record,
+                "Weight_Diff": abs(
+                    current_fighter.weight_min - best_opponent.weight_min
+                ),
+                "Age_Diff": abs(current_fighter.age - best_opponent.age),
+                "Gender": current_fighter.gender,
+                "Weight_Class": reason,  # Category or match type
+            }
+            matches.append(match)
+            # Remove opponent from the pool
+            fighters.pop(best_opponent_idx)
+        else:
+            # No match found
+            unmatched.append(current_fighter)
 
-            if best_pair:
-                # Create match
-                match = {
-                    "Match_ID": match_id,
-                    "Red_Corner": f1.name,
-                    "Red_Club": f1.club,
-                    "Red_Weight": f">={f1.weight_max}"
-                    if f1.weight_min <= 0 or f1.weight_min == f1.weight_max
-                    else f"{f1.weight_min}-{f1.weight_max}",
-                    "Red_Age": f1.age,
-                    "Red_Record": f1.record,
-                    "Blue_Corner": best_pair.name,
-                    "Blue_Club": best_pair.club,
-                    "Blue_Weight": f">={best_pair.weight_max}"
-                    if best_pair.weight_min <= 0
-                    or best_pair.weight_min == best_pair.weight_max
-                    else f"{best_pair.weight_min}-{best_pair.weight_max}",
-                    "Blue_Age": best_pair.age,
-                    "Blue_Record": best_pair.record,
-                    "Weight_Diff": abs(
-                        (f1.weight_min + f1.weight_max) / 2
-                        - (best_pair.weight_min + best_pair.weight_max) / 2
-                    ),
-                    "Age_Diff": abs(f1.age - best_pair.age),
-                    "Gender": gender,
-                    "Weight_Class": weight_class,
-                }
-                matches.append(match)
-                paired_indices.add(f1.index)
-                paired_indices.add(best_pair.index)
-                match_id += 1
-
-        # Add unmatched
-        for f in group:
-            if f.index not in paired_indices:
-                unmatched.append(f)
-
-    # Try to pair remaining unmatched fighters with relaxed constraints
-    special_matches = []
-    remaining_unmatched = []
-
-    if unmatched:
-        # Sort unmatched by age
-        unmatched.sort(key=lambda f: f.age)
-
-        paired_indices = set()
-        for i, f1 in enumerate(unmatched):
-            if f1.index in paired_indices:
-                continue
-
-            best_pair = None
-            best_score = float("inf")
-
-            for j, f2 in enumerate(unmatched):
-                if i == j or f2.index in paired_indices:
-                    continue
-
-                if is_valid_pair(f1, f2, strict_age=False):  # Relaxed age check
-                    score = calculate_pair_score(f1, f2)
-                    if score < best_score:
-                        best_score = score
-                        best_pair = f2
-
-            if best_pair:
-                match_id = len(matches) + len(special_matches) + 1
-                match = {
-                    "Match_ID": match_id,
-                    "Red_Corner": f1.name,
-                    "Red_Club": f1.club,
-                    "Red_Weight": f">={f1.weight_max}"
-                    if f1.weight_min <= 0 or f1.weight_min == f1.weight_max
-                    else f"{f1.weight_min}-{f1.weight_max}",
-                    "Red_Age": f1.age,
-                    "Red_Record": f1.record,
-                    "Blue_Corner": best_pair.name,
-                    "Blue_Club": best_pair.club,
-                    "Blue_Weight": f">={best_pair.weight_max}"
-                    if best_pair.weight_min <= 0
-                    or best_pair.weight_min == best_pair.weight_max
-                    else f"{best_pair.weight_min}-{best_pair.weight_max}",
-                    "Blue_Age": best_pair.age,
-                    "Blue_Record": best_pair.record,
-                    "Weight_Diff": abs(
-                        (f1.weight_min + f1.weight_max) / 2
-                        - (best_pair.weight_min + best_pair.weight_max) / 2
-                    ),
-                    "Age_Diff": abs(f1.age - best_pair.age),
-                    "Gender": f1.gender,
-                    "Weight_Class": f1.weight_class,
-                    "Special_Pair": True,  # Mark as special pair
-                }
-                special_matches.append(match)
-                paired_indices.add(f1.index)
-                paired_indices.add(best_pair.index)
-
-        # Remaining truly unmatched
-        remaining_unmatched = [f for f in unmatched if f.index not in paired_indices]
+    # Handle remaining fighter
+    if fighters:
+        unmatched.extend(fighters)
 
     matches_df = pd.DataFrame(matches)
-    special_matches_df = pd.DataFrame(special_matches)
-
-    # Combine and renumber all pairs
-    if not special_matches_df.empty:
-        all_matches = pd.concat([matches_df, special_matches_df], ignore_index=True)
-        all_matches["Match_ID"] = range(1, len(all_matches) + 1)
-
-        # Split back
-        normal_matches = all_matches[all_matches["Special_Pair"] != True].drop(
-            columns=["Special_Pair"], errors="ignore"
-        )
-        special_matches_final = all_matches[all_matches["Special_Pair"] == True].drop(
-            columns=["Special_Pair"], errors="ignore"
-        )
-    else:
-        matches_df["Match_ID"] = range(1, len(matches_df) + 1)
-        normal_matches = matches_df
-        special_matches_final = special_matches_df
-
     unmatched_df = pd.DataFrame(
         [
             {
@@ -410,8 +352,8 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Data
                 "Record": f.record,
                 "Class": f.class_level,
             }
-            for f in remaining_unmatched
+            for f in unmatched
         ]
     )
 
-    return normal_matches, special_matches_final, unmatched_df
+    return matches_df, unmatched_df

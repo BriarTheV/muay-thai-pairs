@@ -9,18 +9,14 @@ def test_gender_separation():
             "Name": ["Alice", "Bob", "Charlie", "Diana"],
             "Gender": ["F", "M", "M", "F"],
             "Age": [20, 20, 20, 20],
-            "Weight_Min": [60.0, 60.0, 60.0, 60.0],
-            "Weight_Max": [60.0, 60.0, 60.0, 60.0],
+            "Weight": [60.0, 60.0, 60.0, 60.0],
             "Club": ["Club1", "Club2", "Club3", "Club4"],
             "Trainer": ["T1", "T2", "T3", "T4"],
             "Record": [0, 0, 0, 0],
-            "Weight Class": [60.0, 60.0, 60.0, 60.0],
-            "Weight_Min": [60.0, 60.0, 60.0, 60.0],
-            "Weight_Max": [60.0, 60.0, 60.0, 60.0],
         }
     )
 
-    matches, special, unmatched = pair_fighters(df)
+    matches, unmatched = pair_fighters(df)
 
     # Should have 2 matches: F vs F, M vs M
     assert len(matches) == 2
@@ -38,18 +34,14 @@ def test_same_club_prevention():
             "Name": ["Alice", "Bob", "Charlie"],
             "Gender": ["F", "F", "F"],
             "Age": [20, 20, 20],
-            "Weight_Min": [60.0, 60.0, 60.0],
-            "Weight_Max": [60.0, 60.0, 60.0],
+            "Weight": [60.0, 60.0, 60.0],
             "Club": ["SameClub", "SameClub", "DifferentClub"],
             "Trainer": ["T1", "T2", "T3"],
             "Record": [0, 0, 0],
-            "Weight Class": [60.0, 60.0, 60.0],
-            "Weight_Min": [60.0, 60.0, 60.0],
-            "Weight_Max": [60.0, 60.0, 60.0],
         }
     )
 
-    matches, special, unmatched = pair_fighters(df)
+    matches, unmatched = pair_fighters(df)
 
     # Should have 1 match (Alice and Charlie), Bob unmatched
     assert len(matches) == 1
@@ -67,18 +59,14 @@ def test_odd_number_unmatched():
             "Name": ["A", "B", "C"],
             "Gender": ["M", "M", "M"],
             "Age": [20, 20, 20],
-            "Weight_Min": [70.0, 70.0, 70.0],
-            "Weight_Max": [70.0, 70.0, 70.0],
+            "Weight": [70.0, 70.0, 70.0],
             "Club": ["C1", "C2", "C3"],
             "Trainer": ["T1", "T2", "T3"],
             "Record": [0, 0, 0],
-            "Weight Class": [70.0, 70.0, 70.0],
-            "Weight_Min": [70.0, 70.0, 70.0],
-            "Weight_Max": [70.0, 70.0, 70.0],
         }
     )
 
-    matches, special, unmatched = pair_fighters(df)
+    matches, unmatched = pair_fighters(df)
 
     assert len(matches) == 1
     assert len(unmatched) == 1
@@ -91,17 +79,14 @@ def test_weight_tolerance():
             "Name": ["A", "B"],
             "Gender": ["M", "M"],
             "Age": [20, 20],
-            "Weight_Min": [70.0, 70.4],
-            "Weight_Max": [70.0, 70.4],  # Within 0.5kg tolerance
+            "Weight": [70.0, 70.4],  # Within same category
             "Club": ["C1", "C2"],
             "Trainer": ["T1", "T2"],
             "Record": [0, 0],
-            "Weight Class": ["Welter", "Welter"],
-            "Weight_Max": [70.0, 70.4],
         }
     )
 
-    matches, special, unmatched = pair_fighters(df)
+    matches, unmatched = pair_fighters(df)
 
     assert len(matches) == 1
     assert len(unmatched) == 0
@@ -114,20 +99,14 @@ def test_weight_tolerance_exceeded():
             "Name": ["A", "B", "C"],
             "Gender": ["M", "M", "M"],
             "Age": [20, 20, 20],
-            "Weight_Min": [70.0, 71.0, 70.5],
-            "Weight_Max": [
-                70.0,
-                71.0,
-                70.5,
-            ],  # B is 1kg heavier than A, within tolerance with C
+            "Weight": [70.0, 71.0, 70.5],  # B is in different category
             "Club": ["C1", "C2", "C3"],
             "Trainer": ["T1", "T2", "T3"],
             "Record": [0, 0, 0],
-            "Weight Class": ["Welter"] * 3,
         }
     )
 
-    matches, special, unmatched = pair_fighters(df)
+    matches, unmatched = pair_fighters(df)
 
     # A and C should pair (0.5kg diff), B unmatched
     assert len(matches) == 1
@@ -138,27 +117,29 @@ def test_weight_tolerance_exceeded():
 
 def test_weight_class_priority():
     """Test that weight class matches take priority over weight ranges."""
-    f1 = Fighter(0, "A", "M", 20, 70.0, 70.0, "C1", "T1", 0, "Light")
+    f1 = Fighter(0, "A", "M", 20, 68.0, 68.0, "C1", "T1", 0, "Light Middleweight")
     f2 = Fighter(
-        1, "B", "M", 20, 80.0, 80.0, "C2", "T2", 0, "Light"
+        1, "B", "M", 20, 70.0, 70.0, "C2", "T2", 0, "Light Middleweight"
     )  # Same class, different weight
     f3 = Fighter(
-        2, "C", "M", 20, 75.0, 75.0, "C3", "T3", 0, "Heavy"
+        2, "C", "M", 20, 75.0, 75.0, "C3", "T3", 0, "Light Heavyweight"
     )  # Different class, different weight
 
-    assert is_valid_pair(f1, f2)  # Should be valid due to class match
-    assert not is_valid_pair(f1, f3)  # Different class, same weight - should be invalid
+    assert is_valid_pair(f1, f2)[0]  # Should be valid due to same category
+    assert not is_valid_pair(f1, f3)[0]  # Different categories - should be invalid
 
 
 def test_is_valid_pair():
     """Test the is_valid_pair function."""
-    f1 = Fighter(0, "A", "M", 20, 70.0, 70.0, "C1", "T1", 0, "Welter")
-    f2 = Fighter(1, "B", "M", 20, 70.2, 70.2, "C2", "T2", 0, "Welter")
+    f1 = Fighter(0, "A", "M", 20, 70.0, 70.0, "C1", "T1", 0, "Light Middleweight")
+    f2 = Fighter(1, "B", "M", 20, 70.2, 70.2, "C2", "T2", 0, "Light Middleweight")
     f3 = Fighter(
-        2, "C", "F", 20, 70.0, 70.0, "C1", "T1", 0, "Welter"
+        2, "C", "F", 20, 70.0, 70.0, "C1", "T1", 0, "Light Middleweight"
     )  # Different gender
-    f4 = Fighter(3, "D", "M", 20, 70.0, 70.0, "C1", "T1", 0, "Welter")  # Same club
+    f4 = Fighter(
+        3, "D", "M", 20, 70.0, 70.0, "C1", "T1", 0, "Light Middleweight"
+    )  # Same club
 
-    assert is_valid_pair(f1, f2)  # Valid
-    assert not is_valid_pair(f1, f3)  # Different gender
-    assert not is_valid_pair(f1, f4)  # Same club
+    assert is_valid_pair(f1, f2)[0]  # Valid
+    assert not is_valid_pair(f1, f3)[0]  # Different gender
+    assert not is_valid_pair(f1, f4)[0]  # Same club

@@ -42,25 +42,16 @@ def generate_seeded_bracket(participants: list) -> list:
     return bracket
 
 
-def display_interactive_bracket(
-    matches_df: pd.DataFrame, special_matches_df: pd.DataFrame = None
-):
+def display_interactive_bracket(matches_df: pd.DataFrame):
     """Display interactive Olympic-style tournament bracket with improved readability."""
     winners = st.session_state.get("bracket_winners", {})
     current_round = st.session_state.get("current_round", 1)
 
-    # Combine normal and special matches
-    all_matches = (
-        pd.concat([matches_df, special_matches_df])
-        if special_matches_df is not None and not special_matches_df.empty
-        else matches_df
-    )
-
     # Group by weight class
-    if "Weight_Class" in all_matches.columns:
-        grouped = all_matches.groupby("Weight_Class")
+    if "Weight_Class" in matches_df.columns:
+        grouped = matches_df.groupby("Weight_Class")
     else:
-        grouped = [(t("all_classes"), all_matches)]
+        grouped = [(t("all_classes"), matches_df)]
 
     for class_name, class_matches in grouped:
         st.markdown(
@@ -956,54 +947,44 @@ with tab2:
         # Generate pairings button
         if st.button(t("generate_button"), type="primary"):
             with st.spinner(t("generating")):
-                normal_matches, special_matches, unmatched_df = pair_fighters(df)
+                matches_df, unmatched_df = pair_fighters(df)
 
                 # Store in session state
-                st.session_state["matches"] = normal_matches
-                st.session_state["special_matches"] = special_matches
+                st.session_state["matches"] = matches_df
                 st.session_state["unmatched"] = unmatched_df
 
             st.success(t("pairs_generated"))
 
         # Display results
-        normal_matches = st.session_state.get("matches", pd.DataFrame())
-        special_matches = st.session_state.get("special_matches", pd.DataFrame())
+        matches_df = st.session_state.get("matches", pd.DataFrame())
 
-        if not normal_matches.empty:
+        if not matches_df.empty:
             st.subheader("✅ " + t("header_matches"))
-            matches_html = generate_matches_table(normal_matches)
+            matches_html = generate_matches_table(matches_df)
             st.components.v1.html(matches_html, height=400, scrolling=True)
 
-        if not special_matches.empty:
-            st.subheader("⚠️ Special Pairs (Large Age/Weight Differences)")
-            special_html = generate_matches_table(special_matches)
-            st.components.v1.html(special_html, height=400, scrolling=True)
-
-        total_matches = len(normal_matches) + len(special_matches)
-
         # Statistics
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Total Matches", total_matches)
+            st.metric("Total Matches", len(matches_df))
         with col2:
-            st.metric("Normal Pairs", len(normal_matches))
+            avg_weight_diff = (
+                matches_df["Weight_Diff"].mean() if not matches_df.empty else 0
+            )
+            st.metric(t("avg_weight_diff"), f"{avg_weight_diff:.2f} {t('kg')}")
         with col3:
-            st.metric("Special Pairs", len(special_matches))
-        with col4:
             st.metric(
                 "Unmatched", len(st.session_state.get("unmatched", pd.DataFrame()))
             )
 
-        # Warnings for normal pairs
-        if not normal_matches.empty:
+        # Warnings
+        if not matches_df.empty:
             warnings = []
-            high_weight_diff = normal_matches[normal_matches["Weight_Diff"] > 1.0]
+            high_weight_diff = matches_df[matches_df["Weight_Diff"] > 1.0]
             if not high_weight_diff.empty:
                 warnings.append(f"{len(high_weight_diff)} {t('warning_high_weight')}")
 
-            high_age_diff = normal_matches[
-                normal_matches["Age_Diff"] > 1
-            ]  # Now max 1 year
+            high_age_diff = matches_df[matches_df["Age_Diff"] > 2]  # Age gap >2 invalid
             if not high_age_diff.empty:
                 warnings.append(f"{len(high_age_diff)} {t('warning_high_age')}")
 
@@ -1515,10 +1496,9 @@ with tab6:
         st.warning("No matches to display. Generate pairings first.")
     else:
         matches_df = st.session_state["matches"]
-        special_matches_df = st.session_state.get("special_matches", pd.DataFrame())
 
         # Interactive bracket
-        display_interactive_bracket(matches_df, special_matches_df)
+        display_interactive_bracket(matches_df)
 
         # Fallback: show current session data
         if not st.session_state["fighters_df"].empty:
