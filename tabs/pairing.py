@@ -119,7 +119,7 @@ def render_pairing_tab():
             club_conflict_level = st.selectbox(
                 t("club_conflict_level"),
                 [1, 2, 3, 4],
-                index=1,  # Default to level 2 (recommended)
+                index=2,  # Default to level 3 for this tournament
                 format_func=lambda x: {
                     1: t("exact_match"),
                     2: t("same_organization"),
@@ -129,11 +129,18 @@ def render_pairing_tab():
                 help="Level 1: Exact club name match\nLevel 2: Same region + club (ignore subgroups)\nLevel 3: Same region only\nLevel 4: Allow all pairings",
             )
 
+        # Add subgroup pairing override
+        allow_subgroup_pairings = st.checkbox(
+            "Allow different subgroups from same club to pair",
+            value=True,  # Default enabled for this tournament
+            help="Allows fighters from 'Тутаев / Пламя (ФК)' and 'Тутаев / Пламя (ПБ)' to pair",
+        )
+
         # Add sorting strategy selection
         sort_strategy = st.radio(
             "Pairing Priority",
             ["quality", "quantity"],
-            index=0,  # Default to quality
+            index=1,  # Default to quantity for max pairings
             format_func=lambda x: {
                 "quality": "Optimize for Match Quality (Elite First)",
                 "quantity": "Optimize for Maximum Pairs (Fair Distribution)",
@@ -173,7 +180,7 @@ def render_pairing_tab():
         if st.button(t("generate_button"), type="primary"):
             with st.spinner(t("generating")):
                 matches_df, unmatched_df = pair_fighters(
-                    df, club_conflict_level, sort_strategy
+                    df, club_conflict_level, sort_strategy, allow_subgroup_pairings
                 )
 
                 # Store in session state

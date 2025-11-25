@@ -29,8 +29,8 @@ WEIGHT_CLASSES_ADULT = [
 
 
 # Age-based pairing rules for youths
-def get_max_diff_12_14(weight):
-    """Max weight difference for 12-14 year olds."""
+def get_max_diff_12_15(weight):
+    """Max weight difference for 12-15 year olds (ages 12-15)."""
     if weight <= 60:
         return 2.0
     if weight <= 70:
@@ -40,8 +40,8 @@ def get_max_diff_12_14(weight):
     return 5.0  # Over 80kg
 
 
-def get_max_diff_15_16(weight):
-    """Max weight difference for 15-16 year olds."""
+def get_max_diff_16_17(weight):
+    """Max weight difference for 16-17 year olds."""
     if weight <= 54:
         return 2.0
     if weight <= 66:
@@ -52,7 +52,18 @@ def get_max_diff_15_16(weight):
         return 5.0
     if weight <= 85:
         return 6.0
-    return 99.0  # Over 85kg (open)
+    return 7.0  # Over 85kg (more lenient for 16-17)
+
+
+# Legacy functions (deprecated but kept for compatibility)
+def get_max_diff_12_14(weight):
+    """Legacy function - use get_max_diff_12_15 instead."""
+    return get_max_diff_12_15(weight)
+
+
+def get_max_diff_15_16(weight):
+    """Legacy function - use get_max_diff_16_17 instead."""
+    return get_max_diff_16_17(weight)
 
 
 # Class level ordering (higher is more experienced)
@@ -61,9 +72,11 @@ CLASS_ORDER = {"А": 4, "Б": 3, "В": 2, "Г": 1, "0 боев": 0}
 
 def get_class_rank(class_level):
     """Get numerical rank for class level."""
-    if not class_level:
+    if not class_level or pd.isna(class_level):
         return 0
-    return CLASS_ORDER.get(class_level.strip().upper(), 0)
+    # Handle both string and numeric class levels
+    class_str = str(class_level).strip().upper()
+    return CLASS_ORDER.get(class_str, 0)
 
 
 # Age-based pairing rules for juniors
@@ -423,32 +436,66 @@ def is_valid_pair(f1: Fighter, f2: Fighter) -> tuple[bool, str]:
     avg_weight = (f1.weight_min + f2.weight_min) / 2
     weight_diff = abs(f1.weight_min - f2.weight_min)
 
-    # Youths 12-14
-    if 12 <= f1.age <= 14 and 12 <= f2.age <= 14:
-        max_allowed = get_max_diff_12_14(avg_weight)
+    # Youths 12-15 (ages 12-13 and 14-15 divisions)
+    if get_age_division(f1.age) in ["12-13", "14-15"] and get_age_division(f2.age) in [
+        "12-13",
+        "14-15",
+    ]:
+        max_allowed = get_max_diff_12_15(avg_weight)
         if weight_diff <= max_allowed:
-            return True, "Valid 12-14 match"
+            return True, f"Valid youth match ({get_age_division(f1.age)})"
         else:
-            return False, f"Weight diff {weight_diff}kg exceeds limit {max_allowed}kg"
+            return (
+                False,
+                f"Weight diff {weight_diff}kg exceeds youth limit {max_allowed}kg",
+            )
 
-    # Youths 15-16
-    elif 15 <= f1.age <= 16 and 15 <= f2.age <= 16:
-        max_allowed = get_max_diff_15_16(avg_weight)
+    # Older Youths 16-17
+    elif get_age_division(f1.age) in ["16-17"] and get_age_division(f2.age) in [
+        "16-17"
+    ]:
+        max_allowed = get_max_diff_16_17(avg_weight)
         if weight_diff <= max_allowed:
-            return True, "Valid 15-16 match"
+            return True, "Valid older youth match (16-17)"
         else:
-            return False, f"Weight diff {weight_diff}kg exceeds limit {max_allowed}kg"
+            return (
+                False,
+                f"Weight diff {weight_diff}kg exceeds older youth limit {max_allowed}kg",
+            )
 
-    # Juniors (17-18) & Adults (19+)
+    # Adults (18+) - OR youth with undefined categories
     else:
-        # Must be in SAME weight category
+        # Check if either fighter has an undefined weight category (likely youth)
         cat1 = get_weight_category(f1.weight_min)
         cat2 = get_weight_category(f2.weight_min)
 
-        if cat1 and cat1 == cat2:
-            return True, f"Match in {cat1}"
+        # If both have valid categories, require exact match (adult rules)
+        if cat1 and cat2:
+            if cat1 == cat2:
+                return True, f"Match in {cat1}"
+            else:
+                return False, f"Different categories: {cat1} vs {cat2}"
 
-        return False, f"Different categories: {cat1} vs {cat2}"
+        # If either has undefined category (youth or light weights), use floating rules
+        else:
+            # Use youth floating weight rules for undefined categories
+            avg_weight = (f1.weight_min + f2.weight_min) / 2
+            weight_diff = abs(f1.weight_min - f2.weight_min)
+
+            # Apply youth weight difference limits
+            max_allowed = get_max_diff_12_15(
+                avg_weight
+            )  # Use 12-15 rules as default for youth
+            if weight_diff <= max_allowed:
+                return (
+                    True,
+                    f"Youth match (weight diff: {weight_diff:.1f}kg ≤ {max_allowed}kg)",
+                )
+            else:
+                return (
+                    False,
+                    f"Youth weight diff {weight_diff:.1f}kg exceeds limit {max_allowed}kg",
+                )
 
 
 def calculate_experience_penalty(exp1: int, exp2: int) -> float:
@@ -541,7 +588,10 @@ def calculate_pair_score(f1: Fighter, f2: Fighter) -> float:
 
 
 def pair_fighters(
-    df: pd.DataFrame, club_conflict_level: int = 1, sort_strategy: str = "quality"
+    df: pd.DataFrame,
+    club_conflict_level: int = 3,  # Default to level 3 for this tournament
+    sort_strategy: str = "quantity",  # Default to quantity for max pairings
+    allow_subgroup_pairings: bool = True,  # Allow different subgroups from same club
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Perform greedy pairing of fighters based on official rules.
@@ -550,6 +600,7 @@ def pair_fighters(
         df: DataFrame with fighter data
         club_conflict_level: Level of club conflict checking (1-4)
         sort_strategy: "quality" (experienced first) or "quantity" (maximize pairs)
+        allow_subgroup_pairings: Allow different subgroups from same club to pair
 
     Returns:
         matches_df: DataFrame with paired fighters
@@ -560,46 +611,59 @@ def pair_fighters(
 
     fighters = create_fighters(df)
 
-    # Sort fighters based on strategy
-    if sort_strategy == "quality":
-        # Quality-first: Experienced fighters first (current behavior)
-        fighters.sort(
-            key=lambda f: (
-                f.gender,
-                f.age,
-                -get_class_rank(f.class_level),  # Higher class first
-                -f.total_fights,  # More fights first
-                f.weight_min,
-            )
-        )
-    elif sort_strategy == "quantity":
-        # Quantity-first: Try to maximize number of pairs
-        # Sort by "flexibility" - fighters with fewer options first
-        def get_flexibility_score(fighter: Fighter) -> int:
-            """Estimate how many potential valid opponents this fighter has."""
-            # Simplified heuristic: prefer fighters with more constraints first
-            # (higher class, more experience, specific weight ranges)
-            score = 0
-            if fighter.class_level and get_class_rank(fighter.class_level) > 0:
-                score += 2  # Higher class fighters have fewer opponents
-            if fighter.total_fights > 10:
-                score += 1  # Experienced fighters have fewer peers
-            # Weight range narrowness (smaller range = fewer potential opponents)
-            weight_range = fighter.weight_max - fighter.weight_min
-            if weight_range < 5:
-                score += 1
-            return score
+    # Gender-aware sorting: prioritize minority gender first
+    males = [f for f in fighters if f.gender == "м"]
+    females = [f for f in fighters if f.gender == "ж"]
 
-        fighters.sort(
-            key=lambda f: (
-                f.gender,
-                -get_flexibility_score(f),  # Most constrained first
-                f.age,
-                f.weight_min,
-            )
-        )
+    # Determine which gender to prioritize (minority gender)
+    if len(females) <= len(males):
+        # Females are minority or equal - pair them first
+        primary_gender, secondary_gender = females, males
     else:
-        raise ValueError(f"Unknown sort_strategy: {sort_strategy}")
+        # Males are minority - pair them first
+        primary_gender, secondary_gender = males, females
+
+    # Sort fighters based on strategy, prioritizing minority gender
+    def sort_fighter_group(group, strategy):
+        if strategy == "quality":
+            # Quality-first: Experienced fighters first
+            group.sort(
+                key=lambda f: (
+                    -get_class_rank(f.class_level),  # Higher class first
+                    -f.total_fights,  # More fights first
+                    f.weight_min,
+                )
+            )
+        elif strategy == "quantity":
+            # Quantity-first: Most constrained fighters first
+            def get_flexibility_score(fighter: Fighter) -> int:
+                """Estimate how many potential valid opponents this fighter has."""
+                score = 0
+                if fighter.class_level and get_class_rank(fighter.class_level) > 0:
+                    score += 2  # Higher class fighters have fewer opponents
+                if fighter.total_fights > 10:
+                    score += 1  # Experienced fighters have fewer peers
+                # Weight range narrowness (smaller range = fewer potential opponents)
+                weight_range = fighter.weight_max - fighter.weight_min
+                if weight_range < 5:
+                    score += 1
+                return score
+
+            group.sort(
+                key=lambda f: (
+                    -get_flexibility_score(f),  # Most constrained first
+                    f.age,
+                    f.weight_min,
+                )
+            )
+        return group
+
+    # Sort both gender groups
+    primary_gender = sort_fighter_group(primary_gender, sort_strategy)
+    secondary_gender = sort_fighter_group(secondary_gender, sort_strategy)
+
+    # Combine with primary gender first
+    fighters = primary_gender + secondary_gender
 
     matches = []
     unmatched = []
@@ -612,8 +676,24 @@ def pair_fighters(
         # Look for the best valid match
         best_score = float("inf")
         for i, opponent in enumerate(fighters):
-            # Skip club conflicts based on configured level
-            if check_club_conflict(current_fighter, opponent, club_conflict_level):
+            # Skip club conflicts based on configured level with subgroup override
+            conflict = check_club_conflict(
+                current_fighter, opponent, club_conflict_level
+            )
+
+            # Tournament-specific override: allow different subgroups from same club
+            if (
+                conflict
+                and allow_subgroup_pairings
+                and current_fighter.club_region == opponent.club_region
+                and current_fighter.club_name == opponent.club_name
+                and current_fighter.club_subgroup != opponent.club_subgroup
+                and current_fighter.club_subgroup is not None
+                and opponent.club_subgroup is not None
+            ):
+                conflict = False  # Allow subgroup pairing
+
+            if conflict:
                 continue
 
             # Check if valid match
