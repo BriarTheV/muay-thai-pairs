@@ -23,9 +23,29 @@ from utils.auth import logout, get_current_user
 from utils.translations import translations
 
 
+def generate_seeded_bracket(participants: list) -> list:
+    """Generate seeded single-elimination bracket."""
+    n = len(participants)
+    # Find next power of 2
+    bracket_size = 1
+    while bracket_size < n:
+        bracket_size *= 2
+
+    # Add byes
+    seeded = participants + ["BYE"] * (bracket_size - n)
+
+    # Simple seeding: alternate high-low
+    bracket = []
+    for i in range(bracket_size // 2):
+        bracket.append((seeded[i], seeded[bracket_size - 1 - i]))
+
+    return bracket
+
+
 def display_interactive_bracket(matches_df: pd.DataFrame):
-    """Display interactive tournament bracket with winner selection."""
-    winners = st.session_state["bracket_winners"]
+    """Display interactive Olympic-style tournament bracket."""
+    winners = st.session_state.get("bracket_winners", {})
+    current_round = st.session_state.get("current_round", 1)
 
     # Group by weight class
     if "Weight_Class" in matches_df.columns:
@@ -36,52 +56,86 @@ def display_interactive_bracket(matches_df: pd.DataFrame):
     for class_name, class_matches in grouped:
         st.subheader(f"{t('weight_class')}: {class_name}")
 
-        # Round 1
-        st.write(f"### {t('round')} 1")
-        cols = st.columns(min(3, len(class_matches)))
+        # Get participants for this weight class
+        participants = []
+        for _, match in class_matches.iterrows():
+            participants.extend(
+                [
+                    f"{match['Red_Corner']} ({match['Red_Club']})",
+                    f"{match['Blue_Corner']} ({match['Blue_Club']})",
+                ]
+            )
 
-        for i, (idx, match) in enumerate(class_matches.iterrows()):
-            with cols[i % len(cols)]:
-                st.write(f"**{t('pair')} {match.get('Match_ID', idx + 1)}**")
+        # Generate bracket
+        bracket = generate_seeded_bracket(participants)
 
-                red_fighter = f"{match['Red_Corner']} ({match['Red_Club']})"
-                blue_fighter = f"{match['Blue_Corner']} ({match['Blue_Club']})"
+        # Display rounds
+        round_matches = bracket
+        round_num = 1
 
-                st.write(f"🔴 {red_fighter}")
-                st.write(f"🔵 {blue_fighter}")
+        while round_matches:
+            st.write(f"### {t('round')} {round_num}")
 
-                # Winner selection
-                match_key = f"{class_name}_{idx}"
-                winner = st.radio(
-                    "Select winner:",
-                    [red_fighter, blue_fighter],
-                    key=f"winner_{match_key}",
-                    index=0
-                    if winners.get(match_key) == red_fighter
-                    else (1 if winners.get(match_key) == blue_fighter else None),
-                    horizontal=True,
-                )
-                winners[match_key] = winner
+            if round_num == current_round:
+                # Interactive round
+                cols = st.columns(min(3, len(round_matches)))
+                for i, (fighter1, fighter2) in enumerate(round_matches):
+                    with cols[i % len(cols)]:
+                        if fighter1 == "BYE":
+                            st.write(f"**{fighter2}** - BYE")
+                            winners[f"round{round_num}_match{i}"] = fighter2
+                        elif fighter2 == "BYE":
+                            st.write(f"**{fighter1}** - BYE")
+                            winners[f"round{round_num}_match{i}"] = fighter1
+                        else:
+                            st.write(f"**{t('pair')} {i + 1}**")
+                            st.write(f"🏆 {fighter1}")
+                            st.write(f"🏆 {fighter2}")
 
-        # Show winners for next round
-        if winners:
-            st.write("### Winners")
-            winner_list = [w for w in winners.values() if w]
-            if winner_list:
-                st.write(", ".join(winner_list))
+                            winner = st.radio(
+                                "Winner:",
+                                [fighter1, fighter2],
+                                key=f"round{round_num}_match{i}",
+                                horizontal=True,
+                            )
+                            winners[f"round{round_num}_match{i}"] = winner
+            else:
+                # Show results
+                cols = st.columns(min(3, len(round_matches)))
+                for i, (fighter1, fighter2) in enumerate(round_matches):
+                    with cols[i % len(cols)]:
+                        winner = winners.get(f"round{round_num}_match{i}")
+                        if winner:
+                            st.write(f"**{t('pair')} {i + 1}**: {winner} 🏆")
+                        else:
+                            st.write(f"**{t('pair')} {i + 1}**: Pending")
 
-                # Simulate next round
-                if len(winner_list) > 1:
-                    st.write(f"### {t('round')} 2")
-                    # Pair winners
-                    next_matches = []
-                    for j in range(0, len(winner_list), 2):
-                        if j + 1 < len(winner_list):
-                            next_matches.append((winner_list[j], winner_list[j + 1]))
+            # Prepare next round
+            next_round_matches = []
+            for i in range(0, len(round_matches), 2):
+                w1 = winners.get(f"round{round_num}_match{i}")
+                w2 = winners.get(f"round{round_num}_match{i + 1}")
+                if w1 and w2:
+                    next_round_matches.append((w1, w2))
 
-                    for k, (w1, w2) in enumerate(next_matches):
-                        st.write(f"**{t('pair')} {k + 1}**")
-                        st.write(f"🏆 {w1} vs 🏆 {w2}")
+            round_matches = next_round_matches
+            round_num += 1
+
+        # Update session state
+        st.session_state["bracket_winners"] = winners
+        st.session_state["current_round"] = current_round
+
+        # Controls
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Next Round"):
+                st.session_state["current_round"] = min(current_round + 1, round_num)
+                st.rerun()
+        with col2:
+            if st.button("Reset Tournament"):
+                st.session_state["bracket_winners"] = {}
+                st.session_state["current_round"] = 1
+                st.rerun()
 
 
 def generate_matches_table(matches_df: pd.DataFrame) -> str:

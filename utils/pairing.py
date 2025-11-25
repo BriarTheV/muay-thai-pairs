@@ -9,6 +9,43 @@ WEIGHT_TOLERANCE = 0.5  # kg
 AGE_GAP_WARNING = 2  # years for Juniors
 WEIGHT_GAP_PERCENT_WARNING = 5  # %
 
+# Official Muay Thai Weight Categories (kg)
+WEIGHT_CATEGORIES = {
+    "adult": [
+        {"name": "Первый наилегчайший вес", "min": 45, "max": 48},
+        {"name": "Наилегчайший вес", "min": 48, "max": 51},
+        {"name": "Легчайший вес", "min": 51, "max": 54},
+        {"name": "Полулегкий вес", "min": 54, "max": 57},
+        {"name": "Легкий вес", "min": 57, "max": 60},
+        {"name": "Первый полусредний вес", "min": 60, "max": 63.5},
+        {"name": "Второй полусредний вес", "min": 63.5, "max": 67},
+        {"name": "Первый средний вес", "min": 67, "max": 71},
+        {"name": "Средний вес", "min": 71, "max": 75},
+        {"name": "Полутяжелый вес", "min": 75, "max": 81},
+        {"name": "Первый тяжелый вес", "min": 81, "max": 86},
+        {"name": "Тяжелый вес", "min": 86, "max": 91},
+        {"name": "Супертяжелый вес", "min": 91, "max": float("inf")},
+    ]
+}
+
+# Age-based pairing rules for juniors
+JUNIOR_PAIRING_RULES = {
+    "12-14": {
+        (0, 60): 2.0,  # up to 60kg: 2kg difference
+        (60, 70): 3.0,  # 60-70kg: 3kg difference
+        (70, 80): 4.0,  # 70-80kg: 4kg difference
+        (80, float("inf")): 5.0,  # over 80kg: 5kg difference
+    },
+    "15-16": {
+        (0, 54): 2.0,  # up to 54kg: 2kg difference
+        (54, 66): 3.0,  # 54-66kg: 3kg difference
+        (66, 74): 4.0,  # 66-74kg: 4kg difference
+        (74, 79): 5.0,  # 74-79kg: 5kg difference
+        (79, 85): 6.0,  # 79-85kg: 6kg difference
+        (85, float("inf")): 7.0,  # over 85kg: 7kg difference (assuming)
+    },
+}
+
 
 @dataclass
 class Fighter:
@@ -26,21 +63,56 @@ class Fighter:
     dob: Optional[str] = None
 
 
+def get_weight_class(weight: float) -> str:
+    """Get official weight class name for given weight."""
+    for category in WEIGHT_CATEGORIES["adult"]:
+        if category["min"] <= weight < category["max"]:
+            return category["name"]
+    return "Не определен"
+
+
+def get_age_group(age: int) -> str:
+    """Get age group for pairing rules."""
+    if 12 <= age <= 14:
+        return "12-14"
+    elif 15 <= age <= 16:
+        return "15-16"
+    else:
+        return "adult"
+
+
+def get_weight_difference_limit(age: int, weight: float) -> float:
+    """Get maximum allowed weight difference for pairing."""
+    age_group = get_age_group(age)
+    if age_group == "adult":
+        return WEIGHT_TOLERANCE
+
+    rules = JUNIOR_PAIRING_RULES[age_group]
+    for (min_w, max_w), limit in rules.items():
+        if min_w <= weight < max_w:
+            return limit
+
+    return WEIGHT_TOLERANCE  # fallback
+
+
 def create_fighters(df: pd.DataFrame) -> List[Fighter]:
     """Convert DataFrame to list of Fighter objects."""
     fighters = []
     for idx, row in df.iterrows():
+        weight = float(row.get("Weight", 0))
+        weight_class = row.get("Weight Class", get_weight_class(weight))
+
         fighter = Fighter(
             index=idx,
             name=row["Name"],
             gender=row["Gender"],
             age=int(row["Age"]),
-            weight_min=float(row.get("Weight_Min", row.get("Weight", 0))),
-            weight_max=float(row.get("Weight_Max", row.get("Weight", 999))),
+            weight_min=weight,
+            weight_max=weight,
             club=row["Club"],
             trainer=row["Trainer"],
             record=int(row.get("Record", row.get("Total_Fights", 0))),
-            weight_class=row["Weight Class"],
+            weight_class=weight_class,
             class_level=row.get("Class"),
             dob=str(row.get("DOB")) if pd.notna(row.get("DOB")) else None,
         )
@@ -68,12 +140,13 @@ def is_valid_pair(f1: Fighter, f2: Fighter) -> bool:
             return True  # Classes match, allow pairing regardless of weight
 
     # Weight compatibility check (fallback)
-    # For single weights (min==max), use tolerance
-    if f1.weight_min == f1.weight_max and f2.weight_min == f2.weight_max:
-        if abs(f1.weight_min - f2.weight_min) > WEIGHT_TOLERANCE:
-            return False
-    # For ranges, check overlap
-    elif f1.weight_max < f2.weight_min or f2.weight_max < f1.weight_min:
+    # Use age-based weight difference limits
+    weight_diff_limit = max(
+        get_weight_difference_limit(f1.age, f1.weight_min),
+        get_weight_difference_limit(f2.age, f2.weight_min),
+    )
+
+    if abs(f1.weight_min - f2.weight_min) > weight_diff_limit:
         return False
 
     return True
