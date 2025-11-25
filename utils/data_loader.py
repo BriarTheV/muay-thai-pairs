@@ -6,7 +6,7 @@ import re
 
 
 def parse_weight_category(text: str) -> Tuple[float, float]:
-    """Parse weight category from text, supporting 'до X' and single numbers."""
+    """Parse weight category from text, supporting 'до X', ranges 'X-Y', and single numbers."""
     if pd.isna(text) or text == "":
         return (0, 999)  # Default wide range
 
@@ -17,6 +17,16 @@ def parse_weight_category(text: str) -> Tuple[float, float]:
         try:
             max_weight = float(re.search(r"до\s*(\d+(?:\.\d+)?)", text).group(1))
             return (0, max_weight)
+        except Exception:
+            pass
+
+    # Range X-Y
+    range_match = re.search(r"(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)", text)
+    if range_match:
+        try:
+            min_weight = float(range_match.group(1))
+            max_weight = float(range_match.group(2))
+            return (min_weight, max_weight)
         except Exception:
             pass
 
@@ -128,16 +138,29 @@ def validate_excel_file(
             df.columns = [str(c) for c in df.columns]
 
         else:
-            # Use first line from file as column names for data files without mapping
+            # Use expected column names for data files without mapping
             if not has_headers:
-                if len(df) > 0:
-                    df.columns = df.iloc[0].astype(str)
-                    df = df[1:].reset_index(drop=True)
+                expected_columns = [
+                    "Timestamp",
+                    "Gender",
+                    "Name",
+                    "DOB",
+                    "Age",
+                    "Weight_Class",
+                    "Age_Category",
+                    "Class",
+                    "Club",
+                    "Trainer",
+                    "Total_Fights",
+                    "Wins",
+                ]
+                if len(df.columns) == len(expected_columns):
+                    df.columns = expected_columns
                 else:
                     df.columns = [f"Col{i + 1}" for i in range(len(df.columns))]
 
-            # Parse weight categories
-            weight_column = "Weight Class" if "Weight Class" in df.columns else "Weight"
+        # Parse weight categories
+        weight_column = "Weight_Class" if "Weight_Class" in df.columns else "Weight"
             if weight_column in df.columns:
                 # Parse weight categories into min/max
                 weight_ranges = df[weight_column].apply(parse_weight_category)

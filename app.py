@@ -27,7 +27,7 @@ def find_best_column(available_columns: list, field_type: str) -> int:
     """Find the best matching column index based on field type."""
     keywords_map = {
         "name": ["name", "имя", "фамилия", "спортсмен"],
-        "gender": ["gender", "пол", "муж", "жен"],
+        "gender": ["gender", "пол", "муж", "жен", "м", "ж"],
         "weight": ["weight", "вес", "категория"],
         "age": ["age", "возраст", "лет"],
         "club": ["club", "клуб", "город"],
@@ -117,7 +117,7 @@ with tab1:
             # Column order option
             use_standard_order = st.checkbox(
                 t("use_standard_column_order"),
-                value=True,
+                value=False,
                 help=t("standard_order_help"),
             )
 
