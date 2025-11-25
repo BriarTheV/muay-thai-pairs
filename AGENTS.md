@@ -32,6 +32,19 @@ When writing logic or tests, adhere to these constraints:
 *   `utils/pairing.py`: The core algorithm (Greedy matching logic).
 *   `utils/data_loader.py`: Excel validation and cleaning.
 *   `utils/pdf_gen.py`: FPDF layout generation.
+*   `tabs/manual_edits.py`: Manual adjustments interface with drag-and-drop pairing.
+
+## ✏️ Manual Adjustments (Drag & Drop)
+*   **Two-Tab Interface**:
+    *   **Adjust Existing Pairs**: Enhanced data editor for modifying current matches
+    *   **Drag & Drop Pairing**: Visual interface for pairing unmatched fighters
+*   **Drag & Drop Features**:
+    *   Visual fighter cards with gender-based color coding
+    *   Real-time validation feedback during drag operations
+    *   Automatic pairing confirmation with rule enforcement
+    *   Responsive design supporting mouse and touch interactions
+*   **Validation Rules**: Enforces all tournament constraints (gender, age, weight, club conflicts)
+*   **Dependencies**: Requires `streamlit-elements==0.1.*` for drag-and-drop functionality
 
 ## 🔐 Authentication (Supabase)
 *   **Library**: `supabase` (Python client).
