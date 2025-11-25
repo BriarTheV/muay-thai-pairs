@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from utils.pairing import pair_fighters
+from utils.pairing import pair_fighters, parse_club_hierarchy
 from utils.translations import translations
 
 
@@ -110,22 +110,52 @@ def render_pairing_tab():
         df = st.session_state["fighters_df"]
 
         # Configuration
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             weight_tolerance = st.slider(t("weight_tolerance"), 0.0, 2.0, 0.5, 0.1)
         with col2:
             allow_same_trainer = st.checkbox(t("allow_same_trainer"), value=False)
+        with col3:
+            club_conflict_level = st.selectbox(
+                t("club_conflict_level"),
+                [1, 2, 3, 4],
+                index=1,  # Default to level 2 (recommended)
+                format_func=lambda x: {
+                    1: t("exact_match"),
+                    2: t("same_organization"),
+                    3: t("same_region"),
+                    4: t("no_conflicts"),
+                }[x],
+                help="Level 1: Exact club name match\nLevel 2: Same region + club (ignore subgroups)\nLevel 3: Same region only\nLevel 4: Allow all pairings",
+            )
 
-        # Generate pairings button
-        if st.button(t("generate_button"), type="primary"):
-            with st.spinner(t("generating")):
-                matches_df, unmatched_df = pair_fighters(df)
+        # Club parsing preview
+        with st.expander("Club Parsing Preview", expanded=False):
+            st.write("Club hierarchy parsing for conflict checking:")
+            unique_clubs = df["Club"].unique()
+            club_preview = []
+            for club in unique_clubs[:10]:  # Show first 10
+                parsed = parse_club_hierarchy(str(club))
+                club_preview.append(
+                    {
+                        "Original": club,
+                        "Region": parsed["region"] or "N/A",
+                        "Club": parsed["club"] or "N/A",
+                        "Subgroup": parsed["subgroup"] or "N/A",
+                    }
+                )
 
-                # Store in session state
-                st.session_state["matches"] = matches_df
-                st.session_state["unmatched"] = unmatched_df
+            if len(unique_clubs) > 10:
+                club_preview.append(
+                    {
+                        "Original": f"... and {len(unique_clubs) - 10} more",
+                        "Region": "",
+                        "Club": "",
+                        "Subgroup": "",
+                    }
+                )
 
-            st.success(t("pairs_generated"))
+            st.dataframe(pd.DataFrame(club_preview), use_container_width=True)
 
         # Display results
         matches_df = st.session_state.get("matches", pd.DataFrame())

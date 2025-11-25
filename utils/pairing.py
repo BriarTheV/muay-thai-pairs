@@ -100,6 +100,106 @@ class Fighter:
     weight_class: str
     class_level: Optional[str] = None
     dob: Optional[str] = None
+    # Parsed club hierarchy
+    club_region: Optional[str] = None
+    club_name: Optional[str] = None
+    club_subgroup: Optional[str] = None
+
+
+def parse_club_hierarchy(club_str: str) -> dict:
+    """
+    Parse club string into hierarchical components.
+
+    Expected formats:
+    - "Region / Club (Subgroup)" -> {"region": "Region", "club": "Club", "subgroup": "Subgroup"}
+    - "Region / Club" -> {"region": "Region", "club": "Club", "subgroup": None}
+    - "Club" -> {"region": None, "club": "Club", "subgroup": None}
+    """
+    if not club_str or not isinstance(club_str, str):
+        return {"region": None, "club": club_str, "subgroup": None}
+
+    club_str = club_str.strip()
+
+    # Pattern: "Region / Club (Subgroup)"
+    import re
+
+    pattern = r"^(.+?)\s*/\s*(.+?)\s*\((.+?)\)$"
+    match = re.match(pattern, club_str)
+
+    if match:
+        region, club, subgroup = match.groups()
+        return {
+            "region": region.strip(),
+            "club": club.strip(),
+            "subgroup": subgroup.strip(),
+        }
+
+    # Pattern: "Region / Club"
+    pattern = r"^(.+?)\s*/\s*(.+?)$"
+    match = re.match(pattern, club_str)
+
+    if match:
+        region, club = match.groups()
+        return {"region": region.strip(), "club": club.strip(), "subgroup": None}
+
+    # Fallback: treat as club name only
+    return {"region": None, "club": club_str, "subgroup": None}
+
+
+def check_club_conflict(
+    fighter1: Fighter, fighter2: Fighter, conflict_level: int = 1
+) -> bool:
+    """
+    Check if two fighters have a club conflict at the specified level.
+
+    Conflict Levels:
+    1: Exact match (original behavior)
+    2: Same region + club (ignore subgroup) - RECOMMENDED
+    3: Same region only
+    4: No conflicts
+    """
+    if conflict_level == 4:
+        return False  # No conflicts
+
+    if not fighter1.club or not fighter2.club:
+        return False  # No club info = no conflict
+
+    if conflict_level == 1:
+        # Exact string match
+        return fighter1.club == fighter2.club
+
+    # For levels 2-3, we need parsed club info
+    if conflict_level >= 2:
+        # Parse clubs if not already parsed
+        if fighter1.club_region is None:
+            parsed1 = parse_club_hierarchy(fighter1.club)
+            fighter1.club_region = parsed1["region"]
+            fighter1.club_name = parsed1["club"]
+            fighter1.club_subgroup = parsed1["subgroup"]
+
+        if fighter2.club_region is None:
+            parsed2 = parse_club_hierarchy(fighter2.club)
+            fighter2.club_region = parsed2["region"]
+            fighter2.club_name = parsed2["club"]
+            fighter2.club_subgroup = parsed2["subgroup"]
+
+        if conflict_level == 2:
+            # Same region AND club (ignore subgroup)
+            return (
+                fighter1.club_region == fighter2.club_region
+                and fighter1.club_name == fighter2.club_name
+                and fighter1.club_region is not None
+                and fighter1.club_name is not None
+            )
+
+        if conflict_level == 3:
+            # Same region only
+            return (
+                fighter1.club_region == fighter2.club_region
+                and fighter1.club_region is not None
+            )
+
+    return False  # Default: no conflict
 
 
 def get_weight_class(weight: float) -> str:
@@ -175,6 +275,10 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
         total_fights = int(row.get("Record", row.get("Total_Fights", 0)))
         record = int(row.get("Wins", 0))  # Wins from separate column if available
 
+        # Parse club hierarchy
+        club_str = row["Club"]
+        club_parsed = parse_club_hierarchy(club_str)
+
         fighter = Fighter(
             index=idx,
             name=row["Name"],
@@ -182,13 +286,16 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
             age=int(row["Age"]),
             weight_min=weight_min,
             weight_max=weight_max,
-            club=row["Club"],
+            club=club_str,
             trainer=row["Trainer"],
             record=record,
             total_fights=total_fights,
             weight_class=weight_class,
             class_level=row.get("Class"),
             dob=str(row.get("DOB")) if pd.notna(row.get("DOB")) else None,
+            club_region=club_parsed["region"],
+            club_name=club_parsed["club"],
+            club_subgroup=club_parsed["subgroup"],
         )
         fighters.append(fighter)
     return fighters
@@ -283,9 +390,15 @@ def calculate_pair_score(f1: Fighter, f2: Fighter) -> float:
     return score
 
 
-def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def pair_fighters(
+    df: pd.DataFrame, club_conflict_level: int = 1
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Perform greedy pairing of fighters based on official rules.
+
+    Args:
+        df: DataFrame with fighter data
+        club_conflict_level: Level of club conflict checking (1-4)
 
     Returns:
         matches_df: DataFrame with paired fighters
@@ -318,12 +431,8 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         # Look for the best valid match
         best_score = float("inf")
         for i, opponent in enumerate(fighters):
-            # Skip same club
-            if (
-                current_fighter.club
-                and opponent.club
-                and current_fighter.club == opponent.club
-            ):
+            # Skip club conflicts based on configured level
+            if check_club_conflict(current_fighter, opponent, club_conflict_level):
                 continue
 
             # Check if valid match
