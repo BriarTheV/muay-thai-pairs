@@ -272,7 +272,7 @@ with tab1:
                 st.success(t("data_loaded"))
 
                 # Add weight class
-                df["Weight Class"] = df["Weight"].apply(get_weight_class)
+                df["Weight Class"] = df["Weight_Min"].apply(get_weight_class)
 
                 # Store in session state
                 st.session_state["fighters_df"] = df
@@ -419,7 +419,9 @@ with tab1:
                             st.error("{}: {}".format(t("validation_error"), error_msg))
                         else:
                             # Add weight class
-                            df["Weight Class"] = df["Weight"].apply(get_weight_class)
+                            df["Weight Class"] = df["Weight_Min"].apply(
+                                get_weight_class
+                            )
 
                             # Store in session state
                             st.session_state["fighters_df"] = df
@@ -499,6 +501,7 @@ with tab1:
                                 # Convert to dataframe format expected by pairing
                                 df_data = []
                                 for f in selected_fighters_data:
+                                    weight = f["weight"]
                                     df_data.append(
                                         {
                                             "Name": f["name"],
@@ -506,7 +509,9 @@ with tab1:
                                             "Age": f.get(
                                                 "age", 25
                                             ),  # Default if missing
-                                            "Weight": f["weight"],
+                                            "Weight": weight,
+                                            "Weight_Min": weight,
+                                            "Weight_Max": weight,
                                             "Club": f.get("clubs", {}).get(
                                                 "name", "Unknown"
                                             ),
