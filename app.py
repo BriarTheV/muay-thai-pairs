@@ -63,7 +63,7 @@ def generate_matches_table(matches_df: pd.DataFrame) -> str:
     if "Weight_Class" in matches_df.columns:
         grouped = matches_df.groupby("Weight_Class")
     else:
-        grouped = [("All Classes", matches_df)]
+        grouped = [(t("all_classes"), matches_df)]
 
     for class_name, class_matches in grouped:
         # Sort by average age
@@ -73,16 +73,16 @@ def generate_matches_table(matches_df: pd.DataFrame) -> str:
         ) / 2
         class_matches = class_matches.sort_values("Avg_Age")
 
-        html += f"<h3>Weight Class: {class_name}</h3>"
-        html += """
+        html += f"<h3>{t('weight_class')}: {class_name}</h3>"
+        html += f"""
         <table class="matches-table">
             <tr>
-                <th>Pair</th>
-                <th>Fighter</th>
-                <th>Club</th>
-                <th>Weight</th>
-                <th>Age</th>
-                <th>Record</th>
+                <th>{t("pair")}</th>
+                <th>{t("fighter")}</th>
+                <th>{t("club")}</th>
+                <th>{t("weight")}</th>
+                <th>{t("age")}</th>
+                <th>{t("record")}</th>
             </tr>
         """
 
@@ -113,36 +113,36 @@ def generate_matches_table(matches_df: pd.DataFrame) -> str:
 
 def generate_tournament_bracket(matches_df: pd.DataFrame) -> str:
     """Generate HTML for tournament bracket display with weight class organization."""
-    html = """
+    html = f"""
     <style>
-        .bracket {
+        .bracket {{
             font-family: Arial, sans-serif;
             margin: 20px;
-        }
-        .weight-class-section {
+        }}
+        .weight-class-section {{
             margin-bottom: 40px;
             border: 1px solid #ddd;
             border-radius: 8px;
             padding: 20px;
-        }
-        .weight-class-title {
+        }}
+        .weight-class-title {{
             background-color: #d4edda;
             padding: 10px;
             border-radius: 5px;
             margin-bottom: 20px;
             font-size: 1.2em;
             font-weight: bold;
-        }
-        .round {
+        }}
+        .round {{
             display: inline-block;
             vertical-align: top;
             margin-right: 40px;
-        }
-        .round h4 {
+        }}
+        .round h4 {{
             text-align: center;
             margin-bottom: 10px;
-        }
-        .match {
+        }}
+        .match {{
             border: 2px solid #333;
             border-radius: 8px;
             padding: 10px;
@@ -150,28 +150,28 @@ def generate_tournament_bracket(matches_df: pd.DataFrame) -> str:
             background: #f9f9f9;
             min-width: 200px;
             min-height: 60px;
-        }
-        .fighter {
+        }}
+        .fighter {{
             padding: 5px;
             border-bottom: 1px solid #ddd;
-        }
-        .fighter:last-child {
+        }}
+        .fighter:last-child {{
             border-bottom: none;
-        }
-        .placeholder {
+        }}
+        .placeholder {{
             color: #999;
             font-style: italic;
-        }
+        }}
     </style>
     <div class="bracket">
-        <h2>🏆 Tournament Brackets</h2>
+        <h2>{t("tournament_brackets")}</h2>
     """
 
     # Group by weight class
     if "Weight_Class" in matches_df.columns:
         grouped = matches_df.groupby("Weight_Class")
     else:
-        grouped = [("All Classes", matches_df)]
+        grouped = [(t("all_classes"), matches_df)]
 
     for class_name, class_matches in grouped:
         # Sort by average age
@@ -183,9 +183,9 @@ def generate_tournament_bracket(matches_df: pd.DataFrame) -> str:
 
         html += f"""
         <div class="weight-class-section">
-            <div class="weight-class-title">Weight Class: {class_name}</div>
+            <div class="weight-class-title">{t("weight_class")}: {class_name}</div>
             <div class="round">
-                <h4>Round 1</h4>
+                <h4>{t("round")} 1</h4>
         """
 
         for idx, match in class_matches.iterrows():
@@ -205,7 +205,7 @@ def generate_tournament_bracket(matches_df: pd.DataFrame) -> str:
             html += f"""
             </div>
             <div class="round">
-                <h4>Round {round_num}</h4>
+                <h4>{t("round")} {round_num}</h4>
             """
             for i in range(num_matches):
                 html += """
