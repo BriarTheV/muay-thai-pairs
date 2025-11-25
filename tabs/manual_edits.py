@@ -208,15 +208,33 @@ def render_pairing_workspace():
 
 def create_fighter_object(fighter_row):
     """Create a Fighter object from a dataframe row."""
+    # Parse weight range (e.g., "50-55" or ">=55")
+    weight_str = fighter_row.get("Weight", "")
+    if "-" in weight_str:
+        weight_parts = weight_str.split("-")
+        weight_min = float(weight_parts[0])
+        weight_max = float(weight_parts[1])
+    elif weight_str.startswith(">="):
+        weight_min = float(weight_str[2:])
+        weight_max = weight_min
+    else:
+        weight_min = 0.0
+        weight_max = 0.0
+
     return Fighter(
+        index=fighter_row.name if hasattr(fighter_row, "name") else 0,
         name=fighter_row.get("Name", ""),
         gender=fighter_row.get("Gender", ""),
         age=int(fighter_row.get("Age", 0)),
-        weight_min=float(fighter_row.get("Weight_Min", 0)),
-        weight_max=float(fighter_row.get("Weight_Max", 0)),
+        weight_min=weight_min,
+        weight_max=weight_max,
         club=fighter_row.get("Club", ""),
         trainer=fighter_row.get("Trainer", ""),
-        experience=fighter_row.get("Experience", 0),
+        record=int(fighter_row.get("Record", 0)),
+        total_fights=int(
+            fighter_row.get("Record", 0)
+        ),  # Using record as total_fights for now
+        weight_class="",  # Will be determined later if needed
     )
 
 
