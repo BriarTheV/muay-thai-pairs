@@ -184,13 +184,13 @@ def display_interactive_bracket(matches_df: pd.DataFrame):
         st.markdown("---")
         col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("⏭️ Next Round", type="primary", key="next_round_button"):
+            if st.button("⏭️ Next Round", type="primary", key="bracket_next_round"):
                 st.session_state["current_round"] = min(current_round + 1, round_num)
                 st.rerun()
         with col2:
             st.metric("Current Round", current_round)
         with col3:
-            if st.button("🔄 Reset Tournament", key="reset_tournament_button"):
+            if st.button("🔄 Reset Tournament", key="bracket_reset"):
                 st.session_state["bracket_winners"] = {}
                 st.session_state["current_round"] = 1
                 st.rerun()
