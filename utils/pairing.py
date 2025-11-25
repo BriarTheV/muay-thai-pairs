@@ -173,8 +173,10 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
                     "Blue_Weight": f"{best_pair.weight_min}-{best_pair.weight_max}",
                     "Blue_Age": best_pair.age,
                     "Blue_Record": best_pair.record,
-                    "Weight_Overlap": min(f1.weight_max, best_pair.weight_max)
-                    - max(f1.weight_min, best_pair.weight_min),
+                    "Weight_Diff": abs(
+                        (f1.weight_min + f1.weight_max) / 2
+                        - (best_pair.weight_min + best_pair.weight_max) / 2
+                    ),
                     "Age_Diff": abs(f1.age - best_pair.age),
                     "Gender": gender,
                     "Weight_Class": weight_class,
