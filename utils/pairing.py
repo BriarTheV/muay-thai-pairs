@@ -348,11 +348,11 @@ def parse_weight_range(weight_str: str) -> Tuple[float, float]:
         except:
             pass
 
-    # Handle "до X" (up to X)
+    # Handle "до X" (up to X) - treat as ">= X"
     if "до" in weight_str:
         try:
-            max_weight = float(re.search(r"до\s*(\d+(?:\.\d+)?)", weight_str).group(1))
-            return (0, max_weight)
+            weight = float(re.search(r"до\s*(\d+(?:\.\d+)?)", weight_str).group(1))
+            return (weight, weight)  # Treat as exact weight (same as >= X)
         except:
             pass
 
