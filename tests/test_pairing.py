@@ -117,12 +117,12 @@ def test_weight_tolerance_exceeded():
 
 def test_weight_class_priority():
     """Test that weight class matches take priority over weight ranges."""
-    f1 = Fighter(0, "A", "M", 20, 68.0, 68.0, "C1", "T1", 0, "Light Middleweight")
+    f1 = Fighter(0, "A", "M", 20, 68.0, 68.0, "C1", "T1", 0, 5, "Light Middleweight")
     f2 = Fighter(
-        1, "B", "M", 20, 70.0, 70.0, "C2", "T2", 0, "Light Middleweight"
+        1, "B", "M", 20, 70.0, 70.0, "C2", "T2", 0, 3, "Light Middleweight"
     )  # Same class, different weight
     f3 = Fighter(
-        2, "C", "M", 20, 75.0, 75.0, "C3", "T3", 0, "Light Heavyweight"
+        2, "C", "M", 20, 75.0, 75.0, "C3", "T3", 0, 2, "Light Heavyweight"
     )  # Different class, different weight
 
     assert is_valid_pair(f1, f2)[0]  # Should be valid due to same category
@@ -131,13 +131,13 @@ def test_weight_class_priority():
 
 def test_is_valid_pair():
     """Test the is_valid_pair function."""
-    f1 = Fighter(0, "A", "M", 20, 70.0, 70.0, "C1", "T1", 0, "Light Middleweight")
-    f2 = Fighter(1, "B", "M", 20, 70.2, 70.2, "C2", "T2", 0, "Light Middleweight")
+    f1 = Fighter(0, "A", "M", 20, 70.0, 70.0, "C1", "T1", 0, 5, "Light Middleweight")
+    f2 = Fighter(1, "B", "M", 20, 70.2, 70.2, "C2", "T2", 0, 3, "Light Middleweight")
     f3 = Fighter(
-        2, "C", "F", 20, 70.0, 70.0, "C1", "T1", 0, "Light Middleweight"
+        2, "C", "F", 20, 70.0, 70.0, "C1", "T1", 0, 2, "Light Middleweight"
     )  # Different gender
     f4 = Fighter(
-        3, "D", "M", 20, 70.0, 70.0, "C1", "T1", 0, "Light Middleweight"
+        3, "D", "M", 20, 70.0, 70.0, "C1", "T1", 0, 1, "Light Middleweight"
     )  # Same club
 
     assert is_valid_pair(f1, f2)[0]  # Valid

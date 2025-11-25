@@ -55,6 +55,17 @@ def get_max_diff_15_16(weight):
     return 99.0  # Over 85kg (open)
 
 
+# Class level ordering (higher is more experienced)
+CLASS_ORDER = {"А": 4, "Б": 3, "В": 2, "Г": 1, "0 боев": 0}
+
+
+def get_class_rank(class_level):
+    """Get numerical rank for class level."""
+    if not class_level:
+        return 0
+    return CLASS_ORDER.get(class_level.strip().upper(), 0)
+
+
 # Age-based pairing rules for juniors
 JUNIOR_PAIRING_RULES = {
     "12-14": {
@@ -85,6 +96,7 @@ class Fighter:
     club: str
     trainer: str
     record: int
+    total_fights: int
     weight_class: str
     class_level: Optional[str] = None
     dob: Optional[str] = None
@@ -159,6 +171,9 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
         weight_min, weight_max = parse_weight_range(weight_str)
         weight_class = get_weight_category((weight_min + weight_max) / 2)
 
+        total_fights = int(row.get("Total_Fights", row.get("Record", 0)))
+        record = int(row.get("Record", 0))
+
         fighter = Fighter(
             index=idx,
             name=row["Name"],
@@ -168,7 +183,8 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
             weight_max=weight_max,
             club=row["Club"],
             trainer=row["Trainer"],
-            record=int(row.get("Record", row.get("Total_Fights", 0))),
+            record=record,
+            total_fights=total_fights,
             weight_class=weight_class,
             class_level=row.get("Class"),
             dob=str(row.get("DOB")) if pd.notna(row.get("DOB")) else None,
@@ -255,6 +271,14 @@ def calculate_pair_score(f1: Fighter, f2: Fighter) -> float:
     exp_diff = abs(f1.record - f2.record)
     score += exp_diff * 2
 
+    # Class level difference penalty
+    class_diff = abs(get_class_rank(f1.class_level) - get_class_rank(f2.class_level))
+    score += class_diff * 3
+
+    # Total fights difference penalty
+    fights_diff = abs(f1.total_fights - f2.total_fights)
+    score += fights_diff * 1
+
     return score
 
 
@@ -271,8 +295,16 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     fighters = create_fighters(df)
 
-    # Sort fighters by Gender, Age, Weight
-    fighters.sort(key=lambda f: (f.gender, f.age, f.weight_min))
+    # Sort fighters by Gender, Age, Class Level (descending), Total Fights (descending), Weight
+    fighters.sort(
+        key=lambda f: (
+            f.gender,
+            f.age,
+            -get_class_rank(f.class_level),  # Higher class first
+            -f.total_fights,  # More fights first
+            f.weight_min,
+        )
+    )
 
     matches = []
     unmatched = []
@@ -312,6 +344,7 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
                 else f"{current_fighter.weight_min}-{current_fighter.weight_max}",
                 "Red_Age": current_fighter.age,
                 "Red_Record": current_fighter.record,
+                "Red_Total_Fights": current_fighter.total_fights,
                 "Blue_Corner": best_opponent.name,
                 "Blue_Club": best_opponent.club,
                 "Blue_Weight": f">={best_opponent.weight_max}"
@@ -320,6 +353,7 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
                 else f"{best_opponent.weight_min}-{best_opponent.weight_max}",
                 "Blue_Age": best_opponent.age,
                 "Blue_Record": best_opponent.record,
+                "Blue_Total_Fights": best_opponent.total_fights,
                 "Weight_Diff": abs(
                     current_fighter.weight_min - best_opponent.weight_min
                 ),

@@ -184,13 +184,13 @@ def display_interactive_bracket(matches_df: pd.DataFrame):
         st.markdown("---")
         col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("⏭️ Next Round", type="primary"):
+            if st.button("⏭️ Next Round", type="primary", key="next_round_button"):
                 st.session_state["current_round"] = min(current_round + 1, round_num)
                 st.rerun()
         with col2:
             st.metric("Current Round", current_round)
         with col3:
-            if st.button("🔄 Reset Tournament"):
+            if st.button("🔄 Reset Tournament", key="reset_tournament_button"):
                 st.session_state["bracket_winners"] = {}
                 st.session_state["current_round"] = 1
                 st.rerun()
@@ -256,11 +256,12 @@ def generate_matches_table(matches_df: pd.DataFrame) -> str:
         <table class="matches-table">
             <tr>
                 <th>{t("pair")}</th>
-                <th>{t("fighter")}</th>
-                <th>{t("club")}</th>
-                <th>{t("weight")}</th>
-                <th>{t("age")}</th>
-                <th>{t("record")}</th>
+            <th>{t("fighter")}</th>
+            <th>{t("club")}</th>
+            <th>{t("weight")}</th>
+            <th>{t("age")}</th>
+            <th>{t("record")}</th>
+            <th>Total Fights</th>
             </tr>
         """
 
@@ -274,13 +275,15 @@ def generate_matches_table(matches_df: pd.DataFrame) -> str:
                 <td class="red-corner">{match["Red_Weight"]}</td>
                 <td class="red-corner">{match["Red_Age"]}</td>
                 <td class="red-corner">{match["Red_Record"]}</td>
-            </tr>
-            <tr>
-                <td class="blue-corner">{match["Blue_Corner"]}</td>
-                <td class="blue-corner">{match["Blue_Club"]}</td>
-                <td class="blue-corner">{match["Blue_Weight"]}</td>
-                <td class="blue-corner">{match["Blue_Age"]}</td>
-                <td class="blue-corner">{match["Blue_Record"]}</td>
+                <td class="red-corner">{match.get("Red_Total_Fights", match["Red_Record"])}</td>
+        </tr>
+        <tr>
+            <td class="blue-corner">{match["Blue_Corner"]}</td>
+            <td class="blue-corner">{match["Blue_Club"]}</td>
+            <td class="blue-corner">{match["Blue_Weight"]}</td>
+            <td class="blue-corner">{match["Blue_Age"]}</td>
+            <td class="blue-corner">{match["Blue_Record"]}</td>
+                <td class="blue-corner">{match.get("Blue_Total_Fights", match["Blue_Record"])}</td>
             </tr>
             """
 
