@@ -155,16 +155,17 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
     """Convert DataFrame to list of Fighter objects."""
     fighters = []
     for idx, row in df.iterrows():
-        weight = float(row.get("Weight", 0))
-        weight_class = get_weight_category(weight)
+        weight_str = row.get("Weight", "")
+        weight_min, weight_max = parse_weight_range(weight_str)
+        weight_class = get_weight_category((weight_min + weight_max) / 2)
 
         fighter = Fighter(
             index=idx,
             name=row["Name"],
             gender=row["Gender"],
             age=int(row["Age"]),
-            weight_min=weight,
-            weight_max=weight,
+            weight_min=weight_min,
+            weight_max=weight_max,
             club=row["Club"],
             trainer=row["Trainer"],
             record=int(row.get("Record", row.get("Total_Fights", 0))),
