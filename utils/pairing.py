@@ -1,6 +1,7 @@
 # utils/pairing.py - Core pairing logic
 
 import pandas as pd
+import re
 from typing import List, Tuple, Optional
 from dataclasses import dataclass
 
@@ -81,6 +82,39 @@ def get_age_group(age: int) -> str:
         return "adult"
 
 
+def parse_weight_range(weight_str: str) -> Tuple[float, float]:
+    """Parse weight range string like '6-7' or 'до 22'."""
+    if not weight_str or pd.isna(weight_str):
+        return (0, 999)
+
+    weight_str = str(weight_str).strip().lower()
+
+    # Handle "до X" (up to X)
+    if "до" in weight_str:
+        try:
+            max_weight = float(re.search(r"до\s*(\d+(?:\.\d+)?)", weight_str).group(1))
+            return (0, max_weight)
+        except:
+            pass
+
+    # Handle range "X-Y"
+    range_match = re.search(r"(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)", weight_str)
+    if range_match:
+        try:
+            min_w = float(range_match.group(1))
+            max_w = float(range_match.group(2))
+            return (min_w, max_w)
+        except:
+            pass
+
+    # Single weight
+    try:
+        weight = float(weight_str)
+        return (weight, weight)
+    except:
+        return (0, 999)
+
+
 def get_weight_difference_limit(age: int, weight: float) -> float:
     """Get maximum allowed weight difference for pairing."""
     age_group = get_age_group(age)
@@ -99,16 +133,19 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
     """Convert DataFrame to list of Fighter objects."""
     fighters = []
     for idx, row in df.iterrows():
-        weight = float(row.get("Weight", 0))
-        weight_class = row.get("Weight Class", get_weight_class(weight))
+        weight_str = row.get("Weight", "")
+        weight_min, weight_max = parse_weight_range(weight_str)
+        weight_class = row.get(
+            "Weight Class", get_weight_class((weight_min + weight_max) / 2)
+        )
 
         fighter = Fighter(
             index=idx,
             name=row["Name"],
             gender=row["Gender"],
             age=int(row["Age"]),
-            weight_min=weight,
-            weight_max=weight,
+            weight_min=weight_min,
+            weight_max=weight_max,
             club=row["Club"],
             trainer=row["Trainer"],
             record=int(row.get("Record", row.get("Total_Fights", 0))),
