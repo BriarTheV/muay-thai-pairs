@@ -23,9 +23,22 @@ from utils.auth import logout, get_current_user
 from utils.translations import translations
 
 
-def generate_seeded_bracket(participants: list) -> list:
+def generate_seeded_bracket(
+    participants: list, seeding_method: str = "standard"
+) -> list:
     """Generate seeded single-elimination bracket."""
     n = len(participants)
+
+    # Sort participants based on seeding method
+    if seeding_method == "experience":
+        # Assume participants have experience info, but for now, keep as is
+        pass  # Could sort by total_fights if available
+    elif seeding_method == "random":
+        import random
+
+        random.shuffle(participants)
+    # Standard: keep order
+
     # Find next power of 2
     bracket_size = 1
     while bracket_size < n:
@@ -34,7 +47,7 @@ def generate_seeded_bracket(participants: list) -> list:
     # Add byes
     seeded = participants + ["BYE"] * (bracket_size - n)
 
-    # Simple seeding: alternate high-low
+    # Seeding: alternate high-low
     bracket = []
     for i in range(bracket_size // 2):
         bracket.append((seeded[i], seeded[bracket_size - 1 - i]))
@@ -88,7 +101,8 @@ def display_interactive_bracket(matches_df: pd.DataFrame):
                 if round_num == current_round:
                     # Interactive round
                     st.markdown('<div class="round-section">', unsafe_allow_html=True)
-                    cols = st.columns(min(3, len(round_matches)))
+                    num_cols = min(4, max(1, len(round_matches) // 2))
+                    cols = st.columns(num_cols)
                     for i, (fighter1, fighter2) in enumerate(round_matches):
                         with cols[i % len(cols)]:
                             if fighter1 == "BYE":
@@ -138,7 +152,8 @@ def display_interactive_bracket(matches_df: pd.DataFrame):
                 else:
                     # Show results
                     st.markdown('<div class="round-section">', unsafe_allow_html=True)
-                    cols = st.columns(min(3, len(round_matches)))
+                    num_cols = min(4, max(1, len(round_matches) // 2))
+                    cols = st.columns(num_cols)
                     for i, (fighter1, fighter2) in enumerate(round_matches):
                         with cols[i % len(cols)]:
                             winner = winners.get(f"round{round_num}_match{i}")

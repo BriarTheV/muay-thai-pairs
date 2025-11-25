@@ -315,7 +315,8 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         best_opponent = None
         best_opponent_idx = -1
 
-        # Look for the first valid match
+        # Look for the best valid match
+        best_score = float("inf")
         for i, opponent in enumerate(fighters):
             # Skip same club
             if (
@@ -329,9 +330,11 @@ def pair_fighters(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
             is_valid, reason = is_valid_pair(current_fighter, opponent)
 
             if is_valid:
-                best_opponent = opponent
-                best_opponent_idx = i
-                break  # Found the first valid match (greedy approach)
+                score = calculate_pair_score(current_fighter, opponent)
+                if score < best_score:
+                    best_opponent = opponent
+                    best_opponent_idx = i
+                    best_score = score
 
         if best_opponent:
             # Create match
