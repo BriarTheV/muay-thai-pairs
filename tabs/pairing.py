@@ -129,6 +129,18 @@ def render_pairing_tab():
                 help="Level 1: Exact club name match\nLevel 2: Same region + club (ignore subgroups)\nLevel 3: Same region only\nLevel 4: Allow all pairings",
             )
 
+        # Add sorting strategy selection
+        sort_strategy = st.radio(
+            "Pairing Priority",
+            ["quality", "quantity"],
+            index=0,  # Default to quality
+            format_func=lambda x: {
+                "quality": "Optimize for Match Quality (Elite First)",
+                "quantity": "Optimize for Maximum Pairs (Fair Distribution)",
+            }[x],
+            help="Quality: Prioritizes experienced fighters for best matches\nQuantity: Tries to pair as many fighters as possible",
+        )
+
         # Club parsing preview
         with st.expander("Club Parsing Preview", expanded=False):
             st.write("Club hierarchy parsing for conflict checking:")
@@ -156,6 +168,19 @@ def render_pairing_tab():
                 )
 
             st.dataframe(pd.DataFrame(club_preview), use_container_width=True)
+
+        # Generate pairings button
+        if st.button(t("generate_button"), type="primary"):
+            with st.spinner(t("generating")):
+                matches_df, unmatched_df = pair_fighters(
+                    df, club_conflict_level, sort_strategy
+                )
+
+                # Store in session state
+                st.session_state["matches"] = matches_df
+                st.session_state["unmatched"] = unmatched_df
+
+            st.success(t("pairs_generated"))
 
         # Display results
         matches_df = st.session_state.get("matches", pd.DataFrame())

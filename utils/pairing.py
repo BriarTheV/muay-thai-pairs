@@ -108,15 +108,99 @@ class Fighter:
 
 def parse_club_hierarchy(club_str: str) -> dict:
     """
-    Parse club string into hierarchical components.
+    Robust club parsing with multiple fallback patterns.
 
-    Expected formats:
-    - "Region / Club (Subgroup)" -> {"region": "Region", "club": "Club", "subgroup": "Subgroup"}
-    - "Region / Club" -> {"region": "Region", "club": "Club", "subgroup": None}
-    - "Club" -> {"region": None, "club": "Club", "subgroup": None}
+    Supported formats:
+    - "Region / Club (Subgroup)" -> e.g., "Тутаев / Пламя (ФК)"
+    - "Region / Club" -> e.g., "Тутаев / Пламя"
+    - "Club (Subgroup)" -> e.g., "Пламя (ФК)"
+    - "Region - Club" -> e.g., "Тутаев - Пламя"
+    - "Club" -> e.g., "Пламя"
     """
+    import re
+
     if not club_str or not isinstance(club_str, str):
-        return {"region": None, "club": club_str, "subgroup": None}
+        return {
+            "region": None,
+            "club": str(club_str) if club_str else None,
+            "subgroup": None,
+        }
+
+    club_str = club_str.strip()
+
+    # Pattern 1: "Region / Club (Subgroup)" - e.g., "Тутаев / Пламя (ФК)"
+    pattern1 = r"^(.+?)\s*/\s*(.+?)\s*\((.+?)\)$"
+    match = re.match(pattern1, club_str)
+    if match:
+        region, club, subgroup = match.groups()
+        return {
+            "region": region.strip(),
+            "club": club.strip(),
+            "subgroup": subgroup.strip(),
+        }
+
+    # Pattern 2: "Region / Club" - e.g., "Тутаев / Пламя"
+    pattern2 = r"^(.+?)\s*/\s*(.+?)$"
+    match = re.match(pattern2, club_str)
+    if match:
+        region, club = match.groups()
+        return {"region": region.strip(), "club": club.strip(), "subgroup": None}
+
+    # Pattern 3: "Club (Subgroup)" - e.g., "Пламя (ФК)"
+    pattern3 = r"^(.+?)\s*\((.+?)\)$"
+    match = re.match(pattern3, club_str)
+    if match:
+        club, subgroup = match.groups()
+        return {"region": None, "club": club.strip(), "subgroup": subgroup.strip()}
+
+    # Pattern 4: Alternative separators
+    separators = [" - ", " | ", " @ ", " in ", " at ", " from "]
+    for sep in separators:
+        if sep in club_str:
+            parts = club_str.split(sep, 1)
+            if len(parts) == 2:
+                return {
+                    "region": parts[0].strip(),
+                    "club": parts[1].strip(),
+                    "subgroup": None,
+                }
+
+    # Pattern 5: Check for subgroup in brackets at end
+    bracket_match = re.search(r"(.+?)\s*\((.+?)\)\s*$", club_str)
+    if bracket_match and "(" not in bracket_match.group(1):
+        club, subgroup = bracket_match.groups()
+        return {"region": None, "club": club.strip(), "subgroup": subgroup.strip()}
+
+    # Fallback: Entire string as club name
+    return {"region": None, "club": club_str, "subgroup": None}
+
+
+def validate_club_parsing(df: pd.DataFrame) -> dict:
+    """Validate club parsing and report issues."""
+    issues = []
+    parsed_clubs = []
+
+    for idx, row in df.iterrows():
+        club_str = row.get("Club", "")
+        parsed = parse_club_hierarchy(club_str)
+
+        parsed_clubs.append(
+            {
+                "original": club_str,
+                "region": parsed["region"],
+                "club": parsed["club"],
+                "subgroup": parsed["subgroup"],
+            }
+        )
+
+        # Check for parsing issues
+        if not parsed["club"]:
+            issues.append(f"Row {idx}: Failed to parse club '{club_str}'")
+        elif len(club_str) > 0 and parsed["club"] == club_str and not parsed["region"]:
+            # Club parsed as-is, might be missing structure
+            pass  # This is acceptable fallback
+
+    return {"valid": len(issues) == 0, "issues": issues, "parsed_clubs": parsed_clubs}
 
     club_str = club_str.strip()
 
@@ -210,12 +294,28 @@ def get_weight_class(weight: float) -> str:
     return "Не определен"
 
 
+def get_age_division(age: int) -> str:
+    """Get strict age division for pairing validation."""
+    if 12 <= age <= 13:
+        return "12-13"
+    elif 14 <= age <= 15:
+        return "14-15"
+    elif 16 <= age <= 17:
+        return "16-17"
+    elif age >= 18:
+        return "18+"
+    else:
+        return "underage"  # Invalid for competition
+
+
 def get_age_group(age: int) -> str:
-    """Get age group for pairing rules."""
+    """Get age group for pairing rules (legacy function)."""
     if 12 <= age <= 14:
         return "12-14"
     elif 15 <= age <= 16:
         return "15-16"
+    elif 17 <= age <= 18:
+        return "17-18"
     else:
         return "adult"
 
@@ -307,15 +407,16 @@ def is_valid_pair(f1: Fighter, f2: Fighter) -> tuple[bool, str]:
     if f1.gender != f2.gender:
         return False, "Gender mismatch"
 
-    # Age gap check (>2 years invalid)
-    if abs(f1.age - f2.age) > 2:
-        return False, "Age gap too large"
+    # Age division check (strict division boundaries)
+    if get_age_division(f1.age) != get_age_division(f2.age):
+        return (
+            False,
+            f"Different age divisions: {get_age_division(f1.age)} vs {get_age_division(f2.age)}",
+        )
 
-    # Different club
-    if f1.club and f2.club and f1.club == f2.club:
-        return False, "Same club"
+    # Different club (handled separately via check_club_conflict)
 
-    # Different trainer
+    # Different trainer (optional, can be disabled)
     if f1.trainer and f2.trainer and f1.trainer == f2.trainer:
         return False, "Same trainer"
 
@@ -350,48 +451,97 @@ def is_valid_pair(f1: Fighter, f2: Fighter) -> tuple[bool, str]:
         return False, f"Different categories: {cat1} vs {cat2}"
 
 
+def calculate_experience_penalty(exp1: int, exp2: int) -> float:
+    """Calculate experience difference penalty using logarithmic scaling."""
+    import math
+
+    if exp1 == 0 and exp2 == 0:
+        return 0  # Both beginners
+
+    # Handle zero values
+    exp1 = max(exp1, 1)
+    exp2 = max(exp2, 1)
+
+    # Use log scaling to compress large differences
+    ratio = max(exp1, exp2) / min(exp1, exp2)
+    log_penalty = math.log(ratio) * 8  # Reduced multiplier for balance
+
+    # Cap maximum penalty
+    return min(log_penalty, 25)
+
+
+def get_experience_tier(fights: int) -> str:
+    """Categorize fighters by experience level."""
+    if fights == 0:
+        return "beginner"
+    elif fights <= 5:
+        return "novice"
+    elif fights <= 15:
+        return "intermediate"
+    elif fights <= 50:
+        return "experienced"
+    else:
+        return "elite"
+
+
+def calculate_tier_penalty(tier1: str, tier2: str) -> float:
+    """Penalty for mismatched experience tiers."""
+    tiers = ["beginner", "novice", "intermediate", "experienced", "elite"]
+    try:
+        diff = abs(tiers.index(tier1) - tiers.index(tier2))
+        return diff * 6  # 6 points per tier difference
+    except ValueError:
+        return 8  # Default penalty for unknown tiers
+
+
 def calculate_pair_score(f1: Fighter, f2: Fighter) -> float:
     """Calculate soft score for pair quality (lower is better)."""
     score = 0
 
-    # Weight class match bonus (lower score is better)
-    if f1.weight_class and f2.weight_class and f1.weight_class == f2.weight_class:
-        score -= 20  # Significant bonus for class match
+    # Weight class match bonus - ONLY for youth categories (12-16)
+    if f1.age <= 16 and f2.age <= 16:
+        if f1.weight_class and f2.weight_class and f1.weight_class == f2.weight_class:
+            score -= 15  # Reduced bonus for youth weight class alignment
 
-    # Weight range overlap penalty
-    # Calculate overlap quality (prefer tighter overlaps)
+    # For adults (17+), weight class is already enforced as hard constraint
+    # No bonus needed - rely on other metrics
+
+    # Weight range overlap penalty (prefer tighter overlaps)
     overlap_start = max(f1.weight_min, f2.weight_min)
     overlap_end = min(f1.weight_max, f2.weight_max)
     if overlap_end > overlap_start:
         overlap_size = overlap_end - overlap_start
         # Smaller overlap is better (more precise matching)
-        score += (10 - overlap_size) * 2
+        score += (10 - overlap_size) * 1.5  # Reduced multiplier
     else:
         # No overlap (shouldn't happen due to is_valid_pair, but just in case)
-        score += 50
+        score += 30
 
-    # Age difference penalty
+    # Age difference penalty (within divisions, smaller differences are better)
     age_diff = abs(f1.age - f2.age)
-    if age_diff > AGE_GAP_WARNING:
-        score += (age_diff - AGE_GAP_WARNING) * 5
+    if age_diff > 0:  # Any difference within division
+        score += age_diff * 2  # Reduced penalty since divisions are strict
 
-    # Experience difference penalty (prefer similar experience)
-    exp_diff = abs(f1.record - f2.record)
-    score += exp_diff * 2
+    # Experience matching using tiered + logarithmic scoring
+    tier1 = get_experience_tier(f1.total_fights)
+    tier2 = get_experience_tier(f2.total_fights)
+    score += calculate_tier_penalty(tier1, tier2)
 
-    # Class level difference penalty
+    # Additional logarithmic experience penalty
+    score += calculate_experience_penalty(f1.total_fights, f2.total_fights)
+
+    # Class level difference penalty (higher for adults)
     class_diff = abs(get_class_rank(f1.class_level) - get_class_rank(f2.class_level))
-    score += class_diff * 3
-
-    # Total fights difference penalty
-    fights_diff = abs(f1.total_fights - f2.total_fights)
-    score += fights_diff * 1
+    if f1.age >= 17 and f2.age >= 17:  # Adults
+        score += class_diff * 4  # Higher penalty for adults
+    else:  # Youth
+        score += class_diff * 2  # Lower penalty for youth
 
     return score
 
 
 def pair_fighters(
-    df: pd.DataFrame, club_conflict_level: int = 1
+    df: pd.DataFrame, club_conflict_level: int = 1, sort_strategy: str = "quality"
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Perform greedy pairing of fighters based on official rules.
@@ -399,6 +549,7 @@ def pair_fighters(
     Args:
         df: DataFrame with fighter data
         club_conflict_level: Level of club conflict checking (1-4)
+        sort_strategy: "quality" (experienced first) or "quantity" (maximize pairs)
 
     Returns:
         matches_df: DataFrame with paired fighters
@@ -409,16 +560,46 @@ def pair_fighters(
 
     fighters = create_fighters(df)
 
-    # Sort fighters by Gender, Age, Class Level (descending), Total Fights (descending), Weight
-    fighters.sort(
-        key=lambda f: (
-            f.gender,
-            f.age,
-            -get_class_rank(f.class_level),  # Higher class first
-            -f.total_fights,  # More fights first
-            f.weight_min,
+    # Sort fighters based on strategy
+    if sort_strategy == "quality":
+        # Quality-first: Experienced fighters first (current behavior)
+        fighters.sort(
+            key=lambda f: (
+                f.gender,
+                f.age,
+                -get_class_rank(f.class_level),  # Higher class first
+                -f.total_fights,  # More fights first
+                f.weight_min,
+            )
         )
-    )
+    elif sort_strategy == "quantity":
+        # Quantity-first: Try to maximize number of pairs
+        # Sort by "flexibility" - fighters with fewer options first
+        def get_flexibility_score(fighter: Fighter) -> int:
+            """Estimate how many potential valid opponents this fighter has."""
+            # Simplified heuristic: prefer fighters with more constraints first
+            # (higher class, more experience, specific weight ranges)
+            score = 0
+            if fighter.class_level and get_class_rank(fighter.class_level) > 0:
+                score += 2  # Higher class fighters have fewer opponents
+            if fighter.total_fights > 10:
+                score += 1  # Experienced fighters have fewer peers
+            # Weight range narrowness (smaller range = fewer potential opponents)
+            weight_range = fighter.weight_max - fighter.weight_min
+            if weight_range < 5:
+                score += 1
+            return score
+
+        fighters.sort(
+            key=lambda f: (
+                f.gender,
+                -get_flexibility_score(f),  # Most constrained first
+                f.age,
+                f.weight_min,
+            )
+        )
+    else:
+        raise ValueError(f"Unknown sort_strategy: {sort_strategy}")
 
     matches = []
     unmatched = []
