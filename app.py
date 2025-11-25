@@ -23,6 +23,67 @@ from utils.auth import logout, get_current_user
 from utils.translations import translations
 
 
+def display_interactive_bracket(matches_df: pd.DataFrame):
+    """Display interactive tournament bracket with winner selection."""
+    winners = st.session_state["bracket_winners"]
+
+    # Group by weight class
+    if "Weight_Class" in matches_df.columns:
+        grouped = matches_df.groupby("Weight_Class")
+    else:
+        grouped = [(t("all_classes"), matches_df)]
+
+    for class_name, class_matches in grouped:
+        st.subheader(f"{t('weight_class')}: {class_name}")
+
+        # Round 1
+        st.write(f"### {t('round')} 1")
+        cols = st.columns(min(3, len(class_matches)))
+
+        for i, (idx, match) in enumerate(class_matches.iterrows()):
+            with cols[i % len(cols)]:
+                st.write(f"**{t('pair')} {match.get('Match_ID', idx + 1)}**")
+
+                red_fighter = f"{match['Red_Corner']} ({match['Red_Club']})"
+                blue_fighter = f"{match['Blue_Corner']} ({match['Blue_Club']})"
+
+                st.write(f"🔴 {red_fighter}")
+                st.write(f"🔵 {blue_fighter}")
+
+                # Winner selection
+                match_key = f"{class_name}_{idx}"
+                winner = st.radio(
+                    "Select winner:",
+                    [red_fighter, blue_fighter],
+                    key=f"winner_{match_key}",
+                    index=0
+                    if winners.get(match_key) == red_fighter
+                    else (1 if winners.get(match_key) == blue_fighter else None),
+                    horizontal=True,
+                )
+                winners[match_key] = winner
+
+        # Show winners for next round
+        if winners:
+            st.write("### Winners")
+            winner_list = [w for w in winners.values() if w]
+            if winner_list:
+                st.write(", ".join(winner_list))
+
+                # Simulate next round
+                if len(winner_list) > 1:
+                    st.write(f"### {t('round')} 2")
+                    # Pair winners
+                    next_matches = []
+                    for j in range(0, len(winner_list), 2):
+                        if j + 1 < len(winner_list):
+                            next_matches.append((winner_list[j], winner_list[j + 1]))
+
+                    for k, (w1, w2) in enumerate(next_matches):
+                        st.write(f"**{t('pair')} {k + 1}**")
+                        st.write(f"🏆 {w1} vs 🏆 {w2}")
+
+
 def generate_matches_table(matches_df: pd.DataFrame) -> str:
     """Generate HTML table for matches display with two rows per pair, grouped by weight class."""
     html = """
@@ -288,6 +349,8 @@ if "matches" not in st.session_state:
     st.session_state["matches"] = pd.DataFrame()
 if "unmatched" not in st.session_state:
     st.session_state["unmatched"] = pd.DataFrame()
+if "bracket_winners" not in st.session_state:
+    st.session_state["bracket_winners"] = {}
 
 # Create tabs
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
@@ -780,7 +843,7 @@ with tab2:
             matches_df = st.session_state["matches"]
             st.subheader(t("header_matches"))
             matches_html = generate_matches_table(matches_df)
-            st.components.v1.html(matches_html, height=400)
+            st.components.v1.html(matches_html, height=600, scrolling=True)
 
             # Statistics
             col1, col2, col3 = st.columns(3)
@@ -1304,16 +1367,15 @@ with tab5:
         st.info(t("supabase_config"))
 
 with tab6:
-    st.header("🏆 Tournament Bracket")
+    st.header(t("tournament_brackets"))
 
     if st.session_state["matches"].empty:
         st.warning("No matches to display. Generate pairings first.")
     else:
         matches_df = st.session_state["matches"]
 
-        # Generate bracket HTML
-        bracket_html = generate_tournament_bracket(matches_df)
-        st.components.v1.html(bracket_html, height=600)
+        # Interactive bracket
+        display_interactive_bracket(matches_df)
 
         # Fallback: show current session data
         if not st.session_state["fighters_df"].empty:
