@@ -249,7 +249,8 @@ def validate_fighter_dataframe(df: pd.DataFrame) -> Tuple[Optional[pd.DataFrame]
                 if not class_value:  # Empty string is valid
                     return True
                 # Case-insensitive check for class values
-                return class_value.upper() in CLASS_ORDER
+                class_upper = class_value.upper()
+                return any(key.upper() == class_upper for key in CLASS_ORDER.keys())
 
             valid_mask = df["Class"].apply(is_valid_class)
             invalid_mask = ~valid_mask
