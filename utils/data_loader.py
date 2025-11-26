@@ -3,6 +3,7 @@
 import pandas as pd
 from typing import Optional, Tuple, Dict
 import re
+from .pairing import CLASS_ORDER
 
 
 def parse_weight_category(text: str) -> Tuple[float, float]:
@@ -242,15 +243,22 @@ def validate_fighter_dataframe(df: pd.DataFrame) -> Tuple[Optional[pd.DataFrame]
         # Validate Class column
         if "Class" in df.columns:
             df["Class"] = df["Class"].astype(str).str.strip()
-            # Accept single letters (latin or cyrillic) or empty
-            valid_mask = df["Class"].str.match(r"^(?:[A-Za-zА-Яа-я]|)$")
+
+            # Accept valid class values from CLASS_ORDER or empty strings
+            def is_valid_class(class_value):
+                if not class_value:  # Empty string is valid
+                    return True
+                return class_value in CLASS_ORDER
+
+            valid_mask = df["Class"].apply(is_valid_class)
             invalid_mask = ~valid_mask
             if invalid_mask.any():
                 invalid_rows = df[invalid_mask].index.tolist()
                 invalid_values = df.loc[invalid_mask, "Class"].unique().tolist()
+                valid_options = list(CLASS_ORDER.keys()) + [""]
                 return (
                     None,
-                    f"Invalid class values found: {invalid_values}. Use single letters or leave empty. Invalid rows: {invalid_rows}",
+                    f"Invalid class values found: {invalid_values}. Valid options: {valid_options}. Invalid rows: {invalid_rows}",
                 )
         else:
             df["Class"] = ""
