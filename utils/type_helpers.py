@@ -8,6 +8,22 @@ This module provides safe type conversion functions that handle various input fo
 import re
 from typing import Union
 
+# Import pandas early to avoid issues with pd.isna() calls
+try:
+    import pandas as pd
+except ImportError:
+    # Fallback if pandas not available
+    class _MockPandas:
+        @staticmethod
+        def isna(value):
+            if value is None:
+                return True
+            if isinstance(value, float):
+                return str(value).lower() in ("nan", "inf", "-inf")
+            return False
+
+    pd = _MockPandas()
+
 
 def safe_int_conversion(value: Union[str, int, float, bytes, None]) -> int:
     """Safely convert various data types to integer, handling strings, bytes, floats, etc.
@@ -119,19 +135,3 @@ def safe_str_conversion(value: Union[str, int, float, bytes, None]) -> str:
 
     except (AttributeError, TypeError):
         return ""
-
-
-# Import pandas here to avoid circular imports
-try:
-    import pandas as pd
-except ImportError:
-    # Fallback if pandas not available
-    class _MockPandas:
-        @staticmethod
-        def isna(value):
-            return value is None or (
-                isinstance(value, float)
-                and str(value).lower() in ("nan", "inf", "-inf")
-            )
-
-    pd = _MockPandas()

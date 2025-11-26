@@ -22,9 +22,9 @@ def test_gender_separation():
     assert len(matches) == 2
     assert len(unmatched) == 0
 
-    # Check genders in matches
+    # Check genders in matches (normalized to Russian)
     for _, match in matches.iterrows():
-        assert match["Gender"] in ["M", "F"]
+        assert match["Gender"] in ["м", "ж"]
 
 
 def test_same_club_prevention():
@@ -41,7 +41,9 @@ def test_same_club_prevention():
         }
     )
 
-    matches, unmatched = pair_fighters(df)
+    matches, unmatched = pair_fighters(
+        df, club_conflict_level=1
+    )  # Level 1 prevents exact club matches
 
     # Should have 1 match (Alice and Charlie), Bob unmatched
     assert len(matches) == 1

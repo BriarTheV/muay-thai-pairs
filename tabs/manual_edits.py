@@ -205,9 +205,17 @@ def render_match_id_editor():
     - Same Match_ID = Same pair
     """)
 
-    # Ensure master fighter registry is built
-    if not st.session_state.get("master_fighter_registry"):
+    # Ensure master fighter registry is built and in sync
+    registry = st.session_state.get("master_fighter_registry", {})
+    if not registry:
+        # First time initialization
         build_master_fighter_registry()
+    else:
+        # Validate registry is in sync with current data
+        issues = validate_fighter_registry()
+        if issues:
+            st.warning("Registry sync issues detected, rebuilding...")
+            build_master_fighter_registry()
 
     # Create combined dataframe with Match_ID column
     combined_df = create_combined_fighters_dataframe()
@@ -311,7 +319,9 @@ def create_combined_fighters_dataframe():
             "Name": fighter_data["name"],
             "Gender": fighter_data["gender"],
             "Age": fighter_data["age"],
-            "Weight": fighter_data["weight_min"],  # Use min weight for display
+            "Weight": format_weight_string(
+                fighter_data
+            ),  # Consistent weight formatting
             "Club": fighter_data["club"],
             "Match_ID": fighter_data.get("current_match_id", 0),
             "Status": fighter_data.get("status", "unknown").title(),
@@ -320,8 +330,7 @@ def create_combined_fighters_dataframe():
 
     df = pd.DataFrame(all_fighters)
 
-    # Ensure weights are numeric
-    df["Weight"] = pd.to_numeric(df["Weight"], errors="coerce").fillna(0)
+    # Weights are now formatted strings (e.g., ">=60", "55-60"), no numeric conversion needed
 
     return df
 
@@ -381,20 +390,24 @@ def validate_before_save(edited_df) -> tuple[bool, list[str]]:
                 f"Match ID {match_id}: Age division mismatch - {f1['name']} ({get_age_division(f1['age'])}) vs {f2['name']} ({get_age_division(f2['age'])})"
             )
 
-        # Weight compatibility check (basic validation)
+        # Weight compatibility check (using dynamic weight-dependent limits)
+        from utils.pairing import get_max_diff_12_15, get_max_diff_16_17
+
         weight_diff = abs(f1["weight_min"] - f2["weight_min"])
         age_group = get_age_division(f1["age"])
+        avg_weight = (f1["weight_min"] + f2["weight_min"]) / 2
 
         if age_group in ["12-13", "14-15"]:
-            max_allowed = 5.0  # kg for youth
+            max_allowed = get_max_diff_12_15(avg_weight)
         elif age_group in ["16-17"]:
-            max_allowed = 6.0  # kg for older youth
+            max_allowed = get_max_diff_16_17(avg_weight)
         else:
+            # Adult rules - use simplified limit since adult validation is more complex
             max_allowed = 3.0  # kg for adults
 
         if weight_diff > max_allowed:
             errors.append(
-                f"Match ID {match_id}: Weight difference {weight_diff}kg exceeds limit {max_allowed}kg for {age_group} age group"
+                f"Match ID {match_id}: Weight difference {weight_diff:.1f}kg exceeds limit {max_allowed:.1f}kg for {age_group} age group (avg weight: {avg_weight:.1f}kg)"
             )
 
         # Club conflict check (level 1 - exact match)

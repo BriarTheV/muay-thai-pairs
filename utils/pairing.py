@@ -36,6 +36,27 @@ WEIGHT_CATEGORIES = {
 WEIGHT_CLASSES_ADULT = WEIGHT_CATEGORIES["adult"]
 
 
+def normalize_gender(gender: str) -> str:
+    """Normalize gender values to Russian standard (м/ж)."""
+    if not gender or pd.isna(gender):
+        return ""
+
+    gender_str = str(gender).strip().lower()
+
+    # English to Russian mapping
+    if gender_str in ["m", "male", "man", "мужской"]:
+        return "м"
+    elif gender_str in ["f", "female", "woman", "женский"]:
+        return "ж"
+
+    # Already Russian
+    if gender_str in ["м", "ж"]:
+        return gender_str
+
+    # Unknown - return as-is but warn
+    return gender_str
+
+
 @dataclass
 class ValidationResult:
     """Enhanced validation result with detailed feedback."""
@@ -268,21 +289,23 @@ def check_club_conflict(
 
         if conflict_level == 2:
             # Same region AND club (ignore subgroup)
+            # Only conflict if BOTH fighters have valid region AND club data AND they match
             return (
-                fighter1.club_region == fighter2.club_region
-                and fighter1.club_name == fighter2.club_name
-                and fighter1.club_region is not None
+                fighter1.club_region is not None
                 and fighter1.club_name is not None
                 and fighter2.club_region is not None
                 and fighter2.club_name is not None
+                and fighter1.club_region == fighter2.club_region
+                and fighter1.club_name == fighter2.club_name
             )
 
         if conflict_level == 3:
             # Same region only
+            # Only conflict if BOTH fighters have valid region data AND they match
             return (
-                fighter1.club_region == fighter2.club_region
-                and fighter1.club_region is not None
+                fighter1.club_region is not None
                 and fighter2.club_region is not None
+                and fighter1.club_region == fighter2.club_region
             )
 
     return False  # Default: no conflict
@@ -424,7 +447,7 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
         fighter = Fighter(
             index=idx,
             name=row["Name"],
-            gender=row["Gender"],
+            gender=normalize_gender(row["Gender"]),
             age=int(row["Age"]),
             weight_min=weight_min,
             weight_max=weight_max,
