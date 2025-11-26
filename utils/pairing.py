@@ -67,7 +67,7 @@ def get_max_diff_15_16(weight):
 
 
 # Class level ordering (higher is more experienced)
-CLASS_ORDER = {"А": 4, "Б": 3, "В": 2, "Г": 1, "0 боев": 0}
+CLASS_ORDER = {"А": 4, "Б": 3, "В": 2, "С": 2, "Г": 1, "0 боев": 0}
 
 
 def get_class_rank(class_level):
