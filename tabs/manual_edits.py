@@ -35,6 +35,41 @@ def safe_int_conversion(value) -> int:
         return 0
 
 
+def format_weight_string(fighter):
+    """Format weight string to match pairing algorithm output."""
+    weight_min = fighter["weight_min"]
+    weight_max = fighter["weight_max"]
+
+    if weight_min <= 0 or weight_min == weight_max:
+        return f">={weight_max}"
+    else:
+        return f"{weight_min}-{weight_max}"
+
+    try:
+        # Handle bytes objects (decode if needed)
+        if isinstance(value, bytes):
+            value = value.decode("utf-8", errors="ignore")
+
+        # Convert to string first to handle all cases
+        str_val = str(value).strip()
+
+        # Remove any non-numeric characters except decimal point
+        import re
+
+        numeric_str = re.sub(r"[^\d.]", "", str_val)
+
+        # If empty after cleaning, return 0
+        if not numeric_str:
+            return 0
+
+        # Convert to float first, then int (handles "5.0" -> 5)
+        return int(float(numeric_str))
+
+    except (ValueError, TypeError, AttributeError):
+        # If conversion fails, return 0
+        return 0
+
+
 def t(key, default=None):
     """Translation function with optional fallback"""
     lang = st.session_state.get("language", "ru")
@@ -328,16 +363,17 @@ def update_session_state_from_match_id(edited_df):
 
             match_record = {
                 "Match_ID": match_id,
-                "Fighter_1": f1["name"],
-                "Fighter_2": f2["name"],
+                "Red_Corner": f1["name"],
+                "Blue_Corner": f2["name"],
                 "Gender": f1["gender"],
-                "Age_1": f1["age"],
-                "Age_2": f2["age"],
-                "Weight_1": f1["weight_min"],
-                "Weight_2": f2["weight_min"],
-                "Club_1": f1["club"],
-                "Club_2": f2["club"],
+                "Red_Age": f1["age"],
+                "Blue_Age": f2["age"],
+                "Red_Weight": format_weight_string(f1),
+                "Blue_Weight": format_weight_string(f2),
+                "Red_Club": f1["club"],
+                "Blue_Club": f2["club"],
                 "Weight_Diff": abs(f1["weight_min"] - f2["weight_min"]),
+                "Age_Diff": abs(f1["age"] - f2["age"]),
                 "Red_Record": f1["record"],
                 "Red_Total_Fights": f1["total_fights"],
                 "Blue_Record": f2["record"],
