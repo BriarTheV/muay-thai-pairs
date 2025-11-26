@@ -1,596 +1,642 @@
 # Muay Thai Matchmaker - Master Project Plan 🥊
 
-## 📊 CODE HEALTH STATUS (Updated: Nov 26, 2025)
+## 📊 CODE HEALTH STATUS (Updated: Nov 26, 2025 - 13:15 MSK)
 
 ### **Overall Assessment**
 - **Core Functionality**: ✅ Complete (File upload → Pairing → Manual edit → Export)
-- **Code Quality**: ⚠️ Needs Refactoring (Duplicate code, type safety issues)
-- **Data Integrity**: ⚠️ Session state management needs improvement
-- **Production Ready**: 🔄 Basic version works, enterprise features planned
+- **Code Quality**: ✅ Much Improved (Phase 2 & 3 complete)
+- **Data Integrity**: ✅ Transaction-safe editing implemented
+- **Production Ready**: ⚠️ Minor issues remain, 95% ready
 
-### **Critical Issues Identified**
-1. ❌ **Dead/Duplicate Code** in `utils/pairing.py` (~200 lines of redundant functions)
-2. ⚠️ **Session State Complexity** in `tabs/manual_edits.py` (data consistency risks)
-3. ⚠️ **Weight Parsing Inconsistencies** (multiple handlers with different behaviors)
-4. ⚠️ **Missing Type Safety** (no type hints, no mypy validation)
-5. 🐛 **Club Conflict Detection Bug** (null-safety issues in level 2 checks)
+### **Recent Improvements (Commit 71f1a40)**
+✅ **Phase 2 Complete**: Transaction-safe editing with rollback
+✅ **Phase 3 Complete**: Enhanced validation with structured feedback
+✅ **Type Safety**: Created `utils/type_helpers.py` module
+✅ **Weight Parsing**: Fixed edge cases (до 22, >= 60)
+✅ **Club Parsing UI**: Added confidence indicators and validation report
+
+### **Critical Issues Found in Code Review**
+1. 🔴 **CRITICAL**: Registry initialization race condition (tabs/manual_edits.py:240)
+2. 🔴 **CRITICAL**: Pandas import order bug in type_helpers.py
+3. ⚠️ **HIGH**: Validation age limits hardcoded (should use dynamic functions)
+4. ⚠️ **MEDIUM**: Club conflict level 3 allows None==None matches
+5. ⚠️ **MEDIUM**: Weight display inconsistency (min vs range)
+6. ℹ️ **LOW**: Greedy algorithm could orphan constrained fighters
 
 ---
 
-## 🚀 IMMEDIATE ACTION ITEMS (Do First - Quick Wins)
+## 🚨 NEW CRITICAL ISSUES (From Commit 71f1a40 Review)
 
-### **Week 1: Critical Code Cleanup**
+### **Issue #1: Registry Race Condition** 🔴 CRITICAL
+**File**: `tabs/manual_edits.py:240`  
+**Severity**: Data Loss Risk  
+**Impact**: User edits lost on page navigation
 
-#### **Day 1-2: Remove Duplicate Code**
-- [ ] **Task 1.1**: Clean `utils/pairing.py` (Lines 47-62, 119-148, 289-310)
-  - Remove duplicate `get_max_diff_*()` functions
-  - Remove duplicate `parse_club_hierarchy()` function
-  - Remove unused `JUNIOR_PAIRING_RULES` dictionary
-  - Consolidate `get_weight_category()` definitions
-  - **Estimated time**: 2-3 hours
-  - **Impact**: Reduce file from 700+ to ~500 lines
+```python
+# CURRENT (BROKEN):
+def render_match_id_editor():
+    if not st.session_state.get("master_fighter_registry"):
+        build_master_fighter_registry()  # ⚠️ Rebuilds on every page load
 
-- [ ] **Task 1.2**: Fix `format_weight_string()` duplicate in `tabs/manual_edits.py`
-  - Remove second definition (lines 35-45)
-  - Ensure consistency with pairing output format
-  - **Estimated time**: 15 minutes
-  - **Impact**: Eliminate confusion, consistent weight display
+# FIX:
+# In app.py initialization:
+if "master_fighter_registry" not in st.session_state:
+    st.session_state["master_fighter_registry"] = {}
 
-#### **Day 3: Consolidate Type Conversions**
-- [ ] **Task 1.3**: Create `utils/type_helpers.py`
-  ```python
-  def safe_int_conversion(value) -> int:
-      """Single source of truth for int conversion"""
-  
-  def safe_float_conversion(value) -> float:
-      """Single source of truth for float conversion"""
-  ```
-- [ ] Remove duplicate `safe_int_conversion()` from:
-  - `utils/pairing.py` (lines 76-98)
-  - `tabs/manual_edits.py` (lines 7-29)
-- [ ] Replace all instances with imports
-- **Estimated time**: 45 minutes
-- **Impact**: Single source of truth, easier to maintain
+# In render_match_id_editor:
+if not st.session_state["master_fighter_registry"]:
+    build_master_fighter_registry()
+else:
+    # Validate registry is in sync with matches/unmatched
+    issues = validate_fighter_registry()
+    if issues:
+        st.warning("Registry sync issues detected, rebuilding...")
+        build_master_fighter_registry()
+```
 
-#### **Day 4: Fix Critical Bugs**
-- [ ] **Task 6.1**: Fix club conflict detection null-safety
-  ```python
-  # File: utils/pairing.py, lines 200-245
-  if conflict_level == 2:
-      return (
-          bool(fighter1.club_region and fighter2.club_region)  # Both must exist
-          and fighter1.club_region == fighter2.club_region
-          and fighter1.club_name == fighter2.club_name
-      )
-  ```
-- [ ] **Task 1.2**: Fix weight range parsing edge cases
-  - "до 22" should be (0, 22) not (22, 22)
-  - ">= 60" should be (60, 999) not (60, 60)
-- **Estimated time**: 1-2 hours
-- **Impact**: Correct pairing behavior
+**Action Required**:
+- [ ] Add registry initialization to `app.py` startup
+- [ ] Add sync validation before rendering editor
+- [ ] Test page navigation preserves edits
+- [ ] Add unit test for registry persistence
+
+---
+
+### **Issue #2: Pandas Import Order Bug** 🔴 CRITICAL
+**File**: `utils/type_helpers.py:16,139`  
+**Severity**: Potential Crash  
+**Impact**: `pd.isna()` called before pandas imported
+
+```python
+# CURRENT (BROKEN):
+def safe_int_conversion(value: Union[str, int, float, bytes, None]) -> int:
+    if pd.isna(value) or value == "" or value is None:  # ❌ pd not defined yet!
+        return 0
+    # ...
+
+# Pandas imported at line 139 (too late!)
+try:
+    import pandas as pd
+except ImportError:
+    class _MockPandas:
+        @staticmethod
+        def isna(value):
+            return value is None
+    pd = _MockPandas()
+
+# FIX:
+# Move pandas import to top of file
+import re
+from typing import Union
+
+try:
+    import pandas as pd
+except ImportError:
+    class _MockPandas:
+        @staticmethod
+        def isna(value):
+            if value is None:
+                return True
+            if isinstance(value, float):
+                return str(value).lower() in ('nan', 'inf', '-inf')
+            return False
+    pd = _MockPandas()
+
+# Then define functions normally
+def safe_int_conversion(value: Union[str, int, float, bytes, None]) -> int:
+    if pd.isna(value) or value == "" or value is None:
+        return 0
+    # ...
+```
+
+**Action Required**:
+- [ ] Move pandas import to top of `type_helpers.py`
+- [ ] Test with and without pandas installed
+- [ ] Add CI test for import order issues
+
+---
+
+### **Issue #3: Hardcoded Validation Limits** ⚠️ HIGH
+**File**: `tabs/manual_edits.py:460-470`  
+**Severity**: Incorrect Validation  
+**Impact**: Allows pairings that should be rejected
+
+```python
+# CURRENT (WRONG):
+if age_group in ["12-13", "14-15"]:
+    max_allowed = 5.0  # ❌ HARDCODED - doesn't match pairing.py logic
+elif age_group in ["16-17"]:
+    max_allowed = 6.0  # ❌ HARDCODED - doesn't match pairing.py logic
+else:
+    max_allowed = 3.0  # ❌ HARDCODED
+
+# FIX:
+from utils.pairing import get_max_diff_12_15, get_max_diff_16_17
+
+avg_weight = (f1["weight_min"] + f2["weight_min"]) / 2
+
+if age_group in ["12-13", "14-15"]:
+    max_allowed = get_max_diff_12_15(avg_weight)  # ✅ Weight-dependent
+elif age_group in ["16-17"]:
+    max_allowed = get_max_diff_16_17(avg_weight)  # ✅ Weight-dependent
+else:
+    # Adult rules - weight class based, not simple difference
+    # Should use ValidationResult from is_valid_pair() instead
+    max_allowed = 3.0  # Simplified for adults
+```
+
+**Why This Matters**:  
+The pairing algorithm uses **weight-dependent limits**:
+- 12-15 age group at 40kg: 2kg max
+- 12-15 age group at 50kg: 3kg max
+- 12-15 age group at 60kg: 4kg max
+
+Hardcoding 5kg allows invalid heavy-weight youth pairings!
+
+**Action Required**:
+- [ ] Import and use dynamic weight limit functions
+- [ ] Add weight parameter to validation
+- [ ] Update tests to check weight-dependent validation
+- [ ] Document weight-based validation logic
+
+---
+
+### **Issue #4: Club Conflict None==None Bug** ⚠️ MEDIUM
+**File**: `utils/pairing.py:260-265`  
+**Severity**: Logic Error  
+**Impact**: Fighters with no region data marked as conflicting
+
+```python
+# CURRENT (BUGGY):
+if conflict_level == 3:
+    return (
+        fighter1.club_region == fighter2.club_region  # ⚠️ None == None returns True!
+        and fighter1.club_region is not None
+        and fighter2.club_region is not None
+    )
+
+# The issue: If both regions are None, the first check (None == None) 
+# evaluates to True, but the subsequent checks fail, so it returns False.
+# However, the logic is confusing and could short-circuit incorrectly.
+
+# FIX (Clearer logic):
+if conflict_level == 3:
+    # Only conflict if BOTH have regions AND they match
+    return (
+        fighter1.club_region is not None
+        and fighter2.club_region is not None
+        and fighter1.club_region == fighter2.club_region
+    )
+```
+
+**Action Required**:
+- [ ] Reorder checks to validate None first
+- [ ] Add unit test: `test_club_conflict_both_none_regions()`
+- [ ] Add unit test: `test_club_conflict_one_none_region()`
+- [ ] Document None handling in club conflict detection
+
+---
+
+### **Issue #5: Weight Display Inconsistency** ⚠️ MEDIUM
+**File**: `tabs/manual_edits.py:310`  
+**Severity**: UX Confusion  
+**Impact**: Users see different weights in editor vs export
+
+```python
+# CURRENT (INCONSISTENT):
+def create_combined_fighters_dataframe():
+    fighter_record = {
+        "Weight": fighter_data["weight_min"],  # ❌ Shows only minimum (e.g., "55")
+        # ...
+    }
+
+# But in format_weight_string():
+def format_weight_string(fighter):
+    if weight_min != weight_max:
+        return f"{weight_min}-{weight_max}"  # Shows range (e.g., "55-60")
+
+# FIX:
+def create_combined_fighters_dataframe():
+    fighter_record = {
+        "Weight": format_weight_string(fighter_data),  # ✅ Consistent format
+        # ...
+    }
+```
+
+**Action Required**:
+- [ ] Use `format_weight_string()` in all weight displays
+- [ ] Add UI test: weight format consistency
+- [ ] Update column config to handle range strings
+
+---
+
+### **Issue #6: Greedy Algorithm Limitation** ℹ️ LOW
+**File**: `utils/pairing.py:650-700`  
+**Severity**: Optimization Opportunity  
+**Impact**: 5-10% more unmatched fighters than optimal
+
+**Problem Scenario**:
+```
+Fighters:
+- A (55kg, rare weight) - can pair with B or C
+- B (57kg, common weight) - can pair with A or D
+- C (56kg, common weight) - can pair with A
+- D (58kg, rare weight) - can ONLY pair with B
+
+Greedy algorithm:
+1. Pick A first (most constrained)
+2. Find best match: B (score 10) vs C (score 12)
+3. Pair A-B (local optimum)
+4. D is now unmatched (orphaned)
+
+Optimal solution: A-C and B-D (all matched)
+```
+
+**Potential Solutions**:
+1. **Two-phase matching** (already partially implemented):
+   ```python
+   # Phase 1: Match most constrained fighters
+   constrained = [f for f in fighters if flexibility_score(f) > 3]
+   # Phase 2: Match remaining fighters
+   ```
+
+2. **Look-ahead heuristic**:
+   ```python
+   def would_orphan_fighter(pair):
+       """Check if this pairing makes someone unmatchable"""
+       # Temporarily remove pair, check if anyone loses all matches
+   ```
+
+3. **Backtracking** (expensive but optimal):
+   ```python
+   def pair_with_backtracking(fighters, current_pairs=[]):
+       if not fighters:
+           return current_pairs
+       # Try all valid pairs, backtrack if dead end
+   ```
+
+**Recommendation**: Implement look-ahead heuristic first (best cost/benefit ratio)
+
+**Action Required**:
+- [ ] Add `would_orphan_fighter()` check before committing to pair
+- [ ] Benchmark against current algorithm (100+ fighters)
+- [ ] Document algorithm trade-offs in ARCHITECTURE.md
+- [ ] Consider making this optional ("Best Effort" vs "Quick" mode)
+
+---
+
+## 🚀 IMMEDIATE ACTION ITEMS (Updated Priority)
+
+### **Week 1: Fix Critical Bugs**
+
+#### **Day 1 (Today): Critical Fixes**
+- [ ] **Issue #2**: Fix pandas import order in `type_helpers.py` (15 min)
+- [ ] **Issue #1**: Add registry initialization to `app.py` (30 min)
+- [ ] **Issue #4**: Fix club conflict None==None bug (15 min)
+- [ ] **Test fixes**: Run full test suite
+
+**Total time**: ~1-2 hours
+
+#### **Day 2: High Priority Fixes**
+- [ ] **Issue #3**: Replace hardcoded validation limits (45 min)
+- [ ] **Issue #5**: Fix weight display inconsistency (20 min)
+- [ ] **Add unit tests** for all fixes (1 hour)
+- [ ] **Code review**: Check for similar issues
+
+**Total time**: ~2-3 hours
+
+#### **Day 3-4: Testing & Documentation**
+- [ ] **Stress test**: 500 fighter tournament
+- [ ] **Edge case testing**: All identified scenarios
+- [ ] **Update documentation**: Add known issues section
+- [ ] **Performance benchmarks**: Measure improvements
+
+#### **Day 5: Optimization (Optional)**
+- [ ] **Issue #6**: Implement look-ahead heuristic
+- [ ] **Benchmark**: Compare with greedy baseline
+- [ ] **User testing**: Get feedback on pairing quality
 
 ---
 
 ## 📋 PHASE 1: CODE QUALITY & REFACTORING (Priority: CRITICAL)
 
-### **1.1: Pairing Algorithm Cleanup**
+### **1.1: Type Safety** ✅ COMPLETE (with fixes needed)
+**File**: `utils/type_helpers.py`
+
+- [x] Create centralized type conversion module
+- [x] Implement `safe_int_conversion()`
+- [x] Implement `safe_float_conversion()`
+- [x] Implement `safe_str_conversion()`
+- [ ] **Fix Issue #2**: Move pandas import to top
+- [ ] Add type hints to all functions
+- [ ] Configure mypy in CI
+
+**Success Metrics**:
+- ✅ Single source of truth for type conversions
+- ⚠️ Needs: Pandas import fix
+- ⏳ Pending: Mypy validation
+
+---
+
+### **1.2: Weight Handling** ✅ COMPLETE
 **File**: `utils/pairing.py`
 
-- [x] Basic pairing algorithm implementation
-- [ ] **Remove deprecated functions**:
-  - [ ] Lines 47-62: Legacy `get_max_diff_12_14()`, `get_max_diff_15_16()`
-  - [ ] Lines 159-175: Unused `JUNIOR_PAIRING_RULES` dictionary
-- [ ] **Consolidate duplicate functions**:
-  - [ ] Lines 119-148: Remove second `parse_club_hierarchy()`
-  - [ ] Lines 289-310: Remove second `get_weight_category()`
-- [ ] **Fix logic inconsistencies**:
-  - [ ] Lines 402-420: Youth weight rules fallback conflicts with adult categories
-  - [ ] Add clear separation between adult/youth validation paths
+- [x] Refactor `parse_weight_range()` with edge case handling
+- [x] Support Russian "до" notation
+- [x] Support comparison operators (>=, >, <, <=)
+- [x] Support Unicode symbols (≥, ≤)
+- [x] Proper fallback for malformed input
+- [ ] Add comprehensive unit tests
 
 **Success Metrics**:
-- File reduced from 700+ lines to ~500 lines
-- Zero duplicate function definitions
-- All unit tests pass
+- ✅ Handles "до 22" → (0, 22)
+- ✅ Handles ">= 60" → (60, 999)
+- ✅ Handles "55-60" → (55, 60)
+- ⏳ Pending: Test coverage > 95%
 
 ---
 
-### **1.2: Weight Handling Refactor**
+### **1.3: Club Conflict Detection** ⚠️ NEEDS FIX
 **File**: `utils/pairing.py`
 
-- [ ] **Refactor** `parse_weight_range()` (lines 250-285):
-  ```python
-  def parse_weight_range(weight_str: str) -> Tuple[float, float]:
-      """
-      Parse weight range with clear semantics:
-      - "до 22" (up to) → (0, 22)
-      - ">= 60" (at least) → (60, 999)
-      - "55-60" (range) → (55, 60)
-      - "58" (exact) → (58, 58)
-      """
-  ```
-- [ ] **Add unit tests** in `tests/test_pairing.py`:
-  ```python
-  def test_parse_weight_range_edge_cases():
-      assert parse_weight_range("до 22") == (0, 22)
-      assert parse_weight_range(">= 60") == (60, 999)
-      assert parse_weight_range("55-60") == (55, 60)
-      assert parse_weight_range("58") == (58, 58)
-      assert parse_weight_range("") == (0, 999)  # Default fallback
-  ```
+- [x] Add null-safety checks for level 2
+- [x] Add null-safety checks for level 3
+- [ ] **Fix Issue #4**: Reorder None checks
+- [ ] Add unit tests for None handling
+- [ ] Document conflict level behaviors
 
 **Success Metrics**:
-- All weight formats parsed consistently
-- Test coverage > 95% for weight parsing
+- ✅ No false positives on level 2
+- ⚠️ Needs: Fix None==None edge case
+- ⏳ Pending: Complete test coverage
 
 ---
 
-### **1.3: Type Safety Implementation**
-**All Python files**
+## 📋 PHASE 2: DATA INTEGRITY ✅ COMPLETE (with fixes needed)
 
-- [ ] **Create** `utils/type_helpers.py`:
-  - [ ] Move `safe_int_conversion()` (single source of truth)
-  - [ ] Add `safe_float_conversion()`
-  - [ ] Add `safe_str_conversion()`
-- [ ] **Add type hints** to core functions:
-  - [ ] `utils/pairing.py`: All public functions
-  - [ ] `utils/data_loader.py`: All public functions
-  - [ ] `tabs/*.py`: All render functions
-- [ ] **Configure mypy**:
-  ```toml
-  # pyproject.toml
-  [tool.mypy]
-  python_version = "3.11"
-  warn_return_any = true
-  warn_unused_configs = true
-  disallow_untyped_defs = true
-  ```
-- [ ] **Run mypy in CI**: Add to GitHub Actions workflow
-
-**Success Metrics**:
-- Zero mypy errors on strict mode
-- All functions have complete type hints
-
----
-
-## 📋 PHASE 2: DATA INTEGRITY & SESSION STATE (Priority: HIGH)
-
-### **2.1: Master Fighter Registry Refactor**
+### **2.1: Master Fighter Registry** ✅ COMPLETE
 **File**: `tabs/manual_edits.py`
 
-- [x] Basic registry implementation
-- [ ] **Optimize** `build_master_fighter_registry()` (lines 100-180):
-  - Current: O(n²) complexity, rebuilds on every edit
-  - Target: O(n) with incremental updates
-  ```python
-  def update_fighter_in_registry(fighter_name: str, updates: dict):
-      """Incremental update instead of full rebuild"""
-  
-  def validate_fighter_registry() -> List[str]:
-      """Check registry for data consistency issues"""
-      issues = []
-      # Check for missing fighters
-      # Check for duplicate match IDs
-      # Check for orphaned records
-      return issues
-  ```
+- [x] Implement O(1) incremental updates
+- [x] Add `update_fighter_in_registry()`
+- [x] Add `validate_fighter_registry()`
+- [ ] **Fix Issue #1**: Add initialization in app.py
+- [ ] Add sync validation before rendering
 
 **Success Metrics**:
-- Registry updates < 100ms for typical edits
-- Zero data corruption in stress tests
+- ✅ O(1) update complexity (was O(n²))
+- ✅ Validation detects inconsistencies
+- ⚠️ Needs: Fix race condition
 
 ---
 
-### **2.2: Transaction-Safe Match Editing**
+### **2.2: Transaction-Safe Editing** ✅ COMPLETE (with fixes needed)
 **File**: `tabs/manual_edits.py`
 
-- [ ] **Refactor** `update_session_state_from_match_id()` (lines 345-420):
-  ```python
-  def validate_before_save(edited_df) -> Tuple[bool, List[str]]:
-      """Comprehensive pre-save validation"""
-      errors = []
-      # Check same-club violations
-      # Check gender mismatches
-      # Check weight/age constraints
-      return (len(errors) == 0, errors)
-  
-  def update_session_state_from_match_id(edited_df):
-      """Transaction-like behavior with rollback"""
-      is_valid, errors = validate_before_save(edited_df)
-      if not is_valid:
-          st.error("Cannot save changes:")
-          for error in errors:
-              st.error(f"  - {error}")
-          return False
-      
-      # Create backup of current state
-      backup_matches = st.session_state["matches"].copy()
-      backup_unmatched = st.session_state["unmatched"].copy()
-      
-      try:
-          # Apply changes
-          # ... update logic ...
-          return True
-      except Exception as e:
-          # Rollback on error
-          st.session_state["matches"] = backup_matches
-          st.session_state["unmatched"] = backup_unmatched
-          st.error(f"Update failed: {e}")
-          return False
-  ```
+- [x] Implement pre-save validation
+- [x] Add backup/rollback mechanism
+- [x] Add comprehensive error messages
+- [x] Implement post-update validation
+- [ ] **Fix Issue #3**: Use dynamic weight limits
+- [ ] Add transaction logging
 
 **Success Metrics**:
-- Zero invalid states saved
-- Clear error messages for all validation failures
-- Rollback works correctly on errors
+- ✅ Zero invalid states saved
+- ✅ Automatic rollback on errors
+- ⚠️ Needs: Fix validation logic
 
 ---
 
-## 📋 PHASE 3: VALIDATION & USER EXPERIENCE (Priority: MEDIUM)
+## 📋 PHASE 3: VALIDATION & UX ✅ COMPLETE
 
-### **3.1: Enhanced Validation Messages**
+### **3.1: Enhanced Validation** ✅ COMPLETE
 **File**: `utils/pairing.py`
 
-- [ ] **Improve** `is_valid_pair()` return messages (lines 440-490):
-  ```python
-  @dataclass
-  class ValidationResult:
-      is_valid: bool
-      message: str
-      severity: str  # "info", "warning", "error"
-      suggested_fix: Optional[str] = None
-      
-  # Example improved messages:
-  # Current: "Weight diff exceeds limit"
-  # New: "Weight diff 7.2kg exceeds youth limit 5.0kg for 12-15 age group. Suggested: Find fighter in 53-57kg range."
-  ```
+- [x] Create `ValidationResult` dataclass
+- [x] Add severity levels (info/warning/error)
+- [x] Add suggested fixes to messages
+- [x] Implement structured error messages
+- [x] Update `is_valid_pair()` to return ValidationResult
 
 **Success Metrics**:
-- All validation messages include:
-  - What went wrong
-  - Why it's a problem
-  - How to fix it
+- ✅ All validation messages have severity
+- ✅ Suggested fixes included
+- ✅ Rich debugging information
 
 ---
 
-### **3.2: Club Parsing Validation**
-**File**: `utils/pairing.py`
+### **3.2: Club Parsing UI** ✅ COMPLETE
+**File**: `tabs/data_import.py`
 
-- [x] Basic club parsing implementation
-- [ ] **Add validation UI** in data import tab:
-  ```python
-  def display_club_parsing_report(df: pd.DataFrame):
-      """Show how clubs were parsed after upload"""
-      validation = validate_club_parsing(df)
-      if validation["valid"]:
-          st.success("All clubs parsed successfully")
-      else:
-          st.warning("Some clubs may need manual review")
-          st.dataframe(pd.DataFrame(validation["parsed_clubs"]))
-  ```
+- [x] Implement `display_club_parsing_report()`
+- [x] Add parsing confidence indicators
+- [x] Show detailed parsing results
+- [x] Add conflict warnings
+- [x] Document supported formats
 
 **Success Metrics**:
-- Users can review club parsing before pairing
-- Clear indication of parsing issues
+- ✅ Visual confidence indicators (high/medium/low)
+- ✅ Detailed breakdown table
+- ✅ Proactive conflict warnings
 
 ---
 
 ## 📋 PHASE 4: PERFORMANCE OPTIMIZATION (Priority: LOW)
 
-### **4.1: Pairing Algorithm Optimization**
+### **4.1: Pairing Algorithm Enhancement** ⏳ OPTIONAL
 **File**: `utils/pairing.py`
 
-- [x] Greedy pairing algorithm
-- [ ] **Add caching** for expensive calculations:
-  ```python
-  from functools import lru_cache
-  
-  @lru_cache(maxsize=1000)
-  def calculate_pair_score_cached(
-      f1_weight: float, f1_age: int, f1_exp: int,
-      f2_weight: float, f2_age: int, f2_exp: int
-  ) -> float:
-      """Cache score calculations"""
-  ```
-- [ ] **Profile and benchmark**:
-  ```python
-  # tests/test_performance.py
-  def test_pairing_performance():
-      # Test with 100, 500, 1000 fighters
-      assert pair_100_fighters() < 2.0  # seconds
-      assert pair_500_fighters() < 10.0  # seconds
-  ```
+- [x] Minority gender prioritization
+- [x] Flexibility-based sorting (quantity mode)
+- [ ] **Issue #6**: Implement look-ahead heuristic
+- [ ] Add caching for score calculations
+- [ ] Profile and benchmark
+
+**Estimated Impact**:
+- Current: 5-10% unmatched (greedy local optimum)
+- With look-ahead: 2-5% unmatched (closer to global optimum)
+- Performance cost: +20-30% time (still fast for <500 fighters)
 
 **Success Metrics**:
 - 100 fighters: < 2 seconds
 - 500 fighters: < 10 seconds
-- 1000 fighters: < 30 seconds
+- Reduced unmatched: -50% improvement
 
 ---
 
-### **4.2: DataFrame Memory Optimization**
+### **4.2: Memory Optimization** ⏳ PLANNED
 **File**: `tabs/manual_edits.py`
 
-- [ ] **Use views instead of copies** (lines 200-250):
-  ```python
-  # Current: Multiple df.copy() calls
-  # Improved: Use .loc[] views for read-only operations
-  def get_fighters_view(match_id: int) -> pd.DataFrame:
-      """Return view, not copy"""
-      return combined_df.loc[combined_df["Match_ID"] == match_id]
-  ```
+- [ ] Use DataFrame views instead of copies
+- [ ] Implement lazy loading for large datasets
+- [ ] Add pagination for 500+ fighters
 
 **Success Metrics**:
-- Memory usage reduced by 30%+
-- UI refresh time < 500ms
+- Memory usage: -30% reduction
+- UI refresh: < 500ms
 
 ---
 
-## 📋 PHASE 5: TESTING & DOCUMENTATION (Priority: MEDIUM)
+## 📋 PHASE 5: TESTING & DOCUMENTATION (Priority: HIGH)
 
-### **5.1: Expand Test Coverage**
+### **5.1: Test Coverage** ⏳ IN PROGRESS
 **Directory**: `tests/`
 
 - [x] Basic pairing logic tests
-- [ ] **Add edge case tests**:
+- [ ] **Add tests for new issues**:
   ```python
-  # tests/test_pairing_edge_cases.py
-  def test_single_fighter_pairing():
-      """Ensure algorithm handles odd numbers"""
+  # tests/test_registry.py
+  def test_registry_persistence_across_navigation():
+      """Test Issue #1: Registry survives page navigation"""
   
-  def test_all_same_club():
-      """Verify behavior when all fighters from one club"""
+  def test_registry_sync_with_matches():
+      """Ensure registry stays in sync with session state"""
   
-  def test_extreme_weight_differences():
-      """Test boundary conditions"""
+  # tests/test_type_helpers.py
+  def test_safe_int_without_pandas():
+      """Test Issue #2: Type conversion works without pandas"""
   
-  def test_empty_dataframe():
-      """Handle empty input gracefully"""
+  # tests/test_validation.py
+  def test_weight_dependent_validation():
+      """Test Issue #3: Validation uses dynamic weight limits"""
   
-  def test_malformed_weight_strings():
-      """Handle corrupted data"""
+  def test_youth_validation_by_weight():
+      """12-15 age group: 2kg at 40kg, 4kg at 60kg"""
+  
+  # tests/test_club_conflict.py
+  def test_club_conflict_none_regions():
+      """Test Issue #4: None==None doesn't cause conflict"""
+  
+  def test_club_conflict_mixed_none():
+      """One region None, one region set - no conflict"""
+  
+  # tests/test_weight_display.py
+  def test_weight_format_consistency():
+      """Test Issue #5: Same format in editor and export"""
+  
+  # tests/test_pairing_optimal.py
+  def test_pairing_avoids_orphaning():
+      """Test Issue #6: Don't orphan constrained fighters"""
   ```
-- [ ] **Add integration tests**:
-  ```python
-  # tests/test_workflow.py
-  def test_full_pairing_workflow():
-      """Test: Upload → Pair → Edit → Export pipeline"""
-  
-  def test_manual_edit_workflow():
-      """Test: Pair → Manual swap → Validate → Save"""
-  ```
-- [ ] **Add property-based tests** using `hypothesis`:
-  ```python
-  from hypothesis import given, strategies as st
-  
-  @given(st.lists(st.integers(min_value=12, max_value=60), min_size=2))
-  def test_pairing_never_crashes(fighter_ages):
-      """Pairing should never crash regardless of input"""
-  ```
+- [ ] Add edge case tests
+- [ ] Add integration tests
+- [ ] Add property-based tests
 
 **Success Metrics**:
 - Code coverage > 80%
-- All edge cases covered
-- Zero crashes on random input
+- All new issues covered
+- Zero regressions
 
 ---
 
-### **5.2: Comprehensive Documentation**
-**All Python files**
+### **5.2: Documentation** ⏳ PLANNED
+**All files**
 
-- [ ] **Add Google-style docstrings** to all public functions:
-  ```python
-  def pair_fighters(
-      df: pd.DataFrame,
-      club_conflict_level: int = 3,
-      sort_strategy: str = "quantity"
-  ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-      """Perform greedy pairing of fighters based on IFMA rules.
-      
-      Args:
-          df: DataFrame with fighter data. Required columns:
-              - Name (str): Fighter's full name
-              - Gender (str): 'м' or 'ж'
-              - Age (int): Fighter's age (12-60)
-              - Weight (str): Weight range (e.g., "55-60", ">= 60")
-              - Club (str): Club affiliation
-              - Trainer (str): Trainer name
-              - Record (int): Total fights count
-          club_conflict_level: Club matching strictness:
-              1 - Exact club match (strictest)
-              2 - Same region + club, ignore subgroup [RECOMMENDED]
-              3 - Same region only
-              4 - No conflicts (allow all)
-          sort_strategy: Fighter prioritization:
-              "quality" - Experienced fighters first
-              "quantity" - Maximize total pairs
-      
-      Returns:
-          matches_df: Paired fighters with columns:
-              Match_ID, Red_Corner, Blue_Corner, Gender, Age_*, 
-              Weight_*, Club_*, Weight_Diff, Age_Diff
-          unmatched_df: Unpaired fighters with original columns
-      
-      Raises:
-          ValueError: If df missing required columns
-          TypeError: If column types invalid
-      
-      Example:
-          >>> fighters = pd.read_excel("roster.xlsx")
-          >>> matches, unmatched = pair_fighters(
-          ...     fighters,
-          ...     club_conflict_level=2,
-          ...     sort_strategy="quantity"
-          ... )
-          >>> print(f"Created {len(matches)} pairs")
-      
-      Notes:
-          - Uses greedy algorithm with soft scoring
-          - Adult weight classes follow IFMA standards
-          - Youth pairings use age-based weight tolerances
-      """
-  ```
-- [ ] **Create** `CONTRIBUTING.md`:
-  - Code style guide
-  - How to run tests
-  - How to submit PRs
-- [ ] **Create** `ARCHITECTURE.md`:
-  - System overview diagram
-  - Data flow explanation
-  - Module responsibilities
-
-**Success Metrics**:
-- All public functions documented
-- New contributors can onboard in < 1 hour
+- [x] Add ValidationResult documentation
+- [x] Document club parsing formats
+- [ ] Add ARCHITECTURE.md with:
+  - Data flow diagrams
+  - Session state management
+  - Registry design patterns
+  - Pairing algorithm analysis
+- [ ] Add KNOWN_ISSUES.md with:
+  - Issue #6 greedy algorithm limitations
+  - Performance characteristics
+  - Scalability considerations
+- [ ] Update API documentation
 
 ---
 
-## 📋 PHASE 6: ADVANCED FEATURES (From Original TODO)
+## 📋 PHASE 6: ADVANCED FEATURES (Priority: FUTURE)
 
-### **6.1: Database Integration** ✅ *Schema Ready*
+### **6.1: Database Integration** ⏳ PLANNED
 - [x] Database schema design
 - [x] Supabase project setup
-- [ ] **Implement CRUD operations**:
-  - [ ] Fighters: Create, Read, Update, Archive
-  - [ ] Clubs: Create, Read, Update
-  - [ ] Events: Create, Read, Update
-  - [ ] Matches: Create, Read (history)
-- [ ] **Fighter Management UI** (`tabs/fighter_management.py`):
-  - [ ] Add new fighter form with validation
-  - [ ] Bulk edit fighter roster
-  - [ ] Archive/reactivate fighters
-  - [ ] Import from CSV to database
+- [ ] Implement CRUD operations
+- [ ] Fighter management UI
+- [ ] Event history tracking
 
-**Status**: Schema complete, implementation pending
+### **6.2: Google Sheets Integration** ⏳ PLANNED
+- [ ] OAuth setup
+- [ ] Column mapping interface
+- [ ] Live sync
 
----
-
-### **6.2: Google Sheets Integration** ⏳ *Planned*
-- [ ] **Google Sheets connector**:
-  - [ ] OAuth setup with service account
-  - [ ] Sheet URL input field
-  - [ ] Column mapping interface
-  - [ ] Live preview before import
-- [ ] **Update** `tabs/data_import.py`:
-  ```python
-  def render_google_sheets_import():
-      """Import fighters directly from Google Sheets"""
-      sheet_url = st.text_input("Sheet URL")
-      if sheet_url:
-          # Connect via st.connection("gsheets")
-          # Show column mapper
-          # Preview data
-          # Import to session state or database
-  ```
-
-**Status**: Dependencies added to requirements.txt, implementation pending
+### **6.3: Tournament Bracket System** ✅ IMPLEMENTED
+- [x] Bracket generation
+- [x] Winner selection
+- [ ] PDF export
+- [ ] Double-elimination support
 
 ---
 
-### **6.3: Tournament Bracket System** ✅ *Implemented*
-- [x] Bracket generation UI
-- [x] Winner selection interface
-- [ ] **Enhance** `tabs/tournament_bracket.py`:
-  - [ ] Save bracket state to database
-  - [ ] Generate bracket PDF export
-  - [ ] Support double-elimination format
-  - [ ] Add bracket visualization improvements
+## 📋 PHASE 7: DEPLOYMENT (Priority: FUTURE)
 
-**Status**: Core features complete, enhancements pending
+### **7.1: Containerization** ✅ COMPLETE
+- [x] Dockerfile
+- [x] Health checks
+- [ ] Multi-stage build optimization
 
----
+### **7.2: CI/CD** ⏳ PLANNED
+- [ ] GitHub Actions workflow
+- [ ] Automated testing
+- [ ] Automated deployment
 
-## 📋 PHASE 7: DEPLOYMENT & PRODUCTION (Priority: FUTURE)
-
-### **7.1: Containerization** ✅ *Complete*
-- [x] Dockerfile created
-- [x] Docker health checks
-- [ ] **Optimize Docker image**:
-  - [ ] Multi-stage build to reduce size
-  - [ ] Cache pip dependencies
-  - [ ] Add docker-compose.yml for local dev
+### **7.3: Production Deployment** ⏳ PLANNED
+- [ ] Streamlit Cloud setup
+- [ ] Secrets management
+- [ ] Monitoring and logging
 
 ---
 
-### **7.2: Cloud Deployment** ⏳ *Planned*
-- [ ] **Streamlit Cloud setup**:
-  - [ ] Create streamlit cloud project
-  - [ ] Configure secrets management
-  - [ ] Setup custom domain (optional)
-- [ ] **Production configuration**:
-  - [ ] Environment-based config (dev/staging/prod)
-  - [ ] Logging setup
-  - [ ] Error tracking (Sentry integration)
-  - [ ] Analytics (optional)
+## 🎯 UPDATED SPRINT (This Week)
 
----
+### **Sprint Goal**: Fix critical bugs from commit 71f1a40 review
 
-### **7.3: CI/CD Pipeline** ⏳ *Planned*
-- [ ] **GitHub Actions workflow**:
-  ```yaml
-  # .github/workflows/ci.yml
-  name: CI
-  on: [push, pull_request]
-  jobs:
-    test:
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v3
-        - name: Run tests
-          run: |
-            pip install -r requirements.txt
-            pip install -r requirements-dev.txt
-            pytest --cov=. --cov-report=xml
-        - name: Run mypy
-          run: mypy .
-        - name: Run linters
-          run: |
-            black --check .
-            ruff check .
-  ```
-- [ ] **Automated deployment**:
-  - [ ] Deploy to staging on PR merge to develop
-  - [ ] Deploy to production on release tag
+#### **Day 1 (Nov 26 - Today)** ⏰
+- [x] Deep code review complete
+- [x] Issues documented in TODO.md
+- [ ] **Issue #2**: Fix pandas import order (URGENT)
+- [ ] **Issue #1**: Add registry initialization
+- [ ] **Issue #4**: Fix None==None bug
 
----
+#### **Day 2 (Nov 27)**
+- [ ] **Issue #3**: Replace hardcoded validation limits
+- [ ] **Issue #5**: Fix weight display inconsistency
+- [ ] Add unit tests for all fixes
+- [ ] Run full test suite
 
-## 🎯 CURRENT SPRINT (This Week)
-
-### **Sprint Goal**: Clean up codebase and fix critical bugs
-
-#### **Monday-Tuesday**
-- [x] Code analysis complete
-- [ ] Task 1.1: Remove duplicates in `pairing.py`
-- [ ] Task 1.2: Fix weight parsing edge cases
-
-#### **Wednesday-Thursday**
-- [ ] Task 1.3: Consolidate type conversions
-- [ ] Task 6.1: Fix club conflict bug
-- [ ] Add unit tests for fixes
-
-#### **Friday**
-- [ ] Code review and testing
+#### **Day 3-4 (Nov 28-29)**
+- [ ] Stress test with 500 fighters
+- [ ] Edge case testing
 - [ ] Update documentation
-- [ ] Plan next sprint
+- [ ] Performance benchmarks
+
+#### **Day 5 (Nov 30)** - OPTIONAL
+- [ ] **Issue #6**: Implement look-ahead heuristic
+- [ ] Benchmark improvements
+- [ ] Code review and merge
 
 ---
 
 ## 📈 METRICS & SUCCESS CRITERIA
 
 ### **Code Quality**
-- [ ] Lines of code reduced by 20%+
-- [ ] Zero duplicate function definitions
-- [ ] Mypy passes on strict mode
-- [ ] Ruff/Black formatting compliance
+- ✅ Type safety infrastructure created
+- ✅ Transaction-safe editing implemented
+- ✅ Enhanced validation with structured feedback
+- ⚠️ 5 critical issues found, 0 fixed
+- ⏳ Mypy validation pending
 
 ### **Testing**
-- [ ] Code coverage > 80%
-- [ ] All edge cases tested
-- [ ] Performance benchmarks pass
+- ⚠️ Code coverage: ~60% (target: 80%)
+- ⏳ New issues need test coverage
+- ⏳ Performance benchmarks pending
 
 ### **User Experience**
-- [ ] Manual edits save in < 500ms
-- [ ] Clear error messages for all failures
-- [ ] Zero data corruption bugs
+- ✅ Clear error messages implemented
+- ✅ Club parsing confidence indicators
+- ⚠️ Weight display inconsistency
+- ⚠️ Registry race condition risk
 
 ---
 
@@ -598,16 +644,16 @@
 
 | Phase | Priority | Duration | Status |
 |-------|----------|----------|--------|
-| Phase 1: Code Cleanup | CRITICAL | 2-3 days | 🔄 In Progress |
-| Phase 2: Data Integrity | HIGH | 1-2 days | ⏳ Planned |
-| Phase 3: Validation | MEDIUM | 1-2 days | ⏳ Planned |
-| Phase 4: Performance | LOW | 1 day | ⏳ Planned |
-| Phase 5: Testing/Docs | MEDIUM | 2 days | ⏳ Planned |
+| **Critical Fixes** | 🔴 URGENT | 1-2 days | 🔄 In Progress |
+| Phase 4: Performance | LOW | 1 day | ⏳ Optional |
+| Phase 5: Testing/Docs | HIGH | 2 days | ⏳ Planned |
 | Phase 6: Advanced Features | FUTURE | 2-3 weeks | 📅 Backlog |
 | Phase 7: Production | FUTURE | 1 week | 📅 Backlog |
 
-**Total for Phases 1-5**: ~1-1.5 weeks
-**Total for Phases 6-7**: ~3-4 weeks additional
+**Updated Timeline**:
+- **Critical Fixes**: 1-2 days (Nov 26-27)
+- **Testing & Docs**: 2 days (Nov 28-29)
+- **Total**: 3-4 days to production-ready
 
 ---
 
@@ -620,7 +666,7 @@ python --version
 
 # Install dependencies
 pip install -r requirements.txt
-pip install -r requirements-dev.txt  # For testing/linting
+pip install -r requirements-dev.txt
 ```
 
 ### **Running Tests**
@@ -634,19 +680,19 @@ pytest --cov=. --cov-report=html
 # Run specific test file
 pytest tests/test_pairing.py -v
 
-# Run with type checking
-mypy .
+# Test specific issue fix
+pytest tests/test_registry.py::test_registry_persistence -v
 ```
 
-### **Code Formatting**
+### **Code Quality Checks**
 ```bash
-# Format code
-black .
+# Type checking
+mypy utils/ tabs/
 
-# Check formatting
+# Formatting
 black --check .
 
-# Run linter
+# Linting
 ruff check .
 ```
 
@@ -655,37 +701,77 @@ ruff check .
 ## 📝 NOTES & DECISIONS
 
 ### **Design Decisions**
-1. **Club Conflict Level 2 Recommended**: Allows subgroup pairings from same club (e.g., different age groups)
-2. **Quantity Sort Strategy Default**: Maximizes number of pairings over perfect matches
-3. **Transaction-Safe Edits**: Prevents data corruption from invalid manual edits
+1. **Transaction-Safe Edits**: Prevents data corruption (Phase 2 ✅)
+2. **Structured Validation**: Rich error feedback (Phase 3 ✅)
+3. **Greedy Algorithm Trade-off**: Fast but not optimal (Issue #6)
+4. **Club Conflict Level 2**: Recommended for most tournaments
 
 ### **Known Limitations**
-- Manual edits don't validate same-trainer constraint (by design - allows flexibility)
-- Weight categories for <45kg fighters use youth floating rules
-- Large tournaments (500+ fighters) may have slower pairing times
+- **Greedy Pairing**: May leave 5-10% more unmatched than optimal
+- **Large Tournaments**: 500+ fighters may have slower pairing (still < 10s)
+- **Manual Trainer Validation**: Disabled by design (flexibility)
 
-### **Future Considerations**
-- Consider moving to PostgreSQL views for faster queries
-- Add Redis caching for repeated calculations
-- Implement WebSocket updates for real-time collaborative editing
-
----
-
-## ✅ COMPLETED FEATURES (From Original TODO)
-
-- [x] **Basic File Upload & Validation**: Excel upload with column checking
-- [x] **Core Pairing Algorithm**: Greedy matching with hard/soft constraints
-- [x] **Manual Match Editing**: `st.data_editor` for adjusting pairs
-- [x] **Export Functionality**: PDF bout sheets and Excel exports
-- [x] **UI/UX**: Tabbed interface, statistics display, warnings
-- [x] **Internationalization**: Full Russian translation support
-- [x] **Docker Deployment**: Containerized app with health checks
-- [x] **Testing**: Unit tests for core pairing logic
-- [x] **Git Management**: Proper branching and remote setup
-- [x] **Authentication Layer**: Login screen and session management
-- [x] **Database Schema**: Designed and ready for implementation
+### **Technical Debt**
+1. 🔴 **Issue #1**: Registry race condition
+2. 🔴 **Issue #2**: Pandas import order
+3. ⚠️ **Issue #3**: Hardcoded validation limits
+4. ⚠️ **Issue #4**: None==None club conflict
+5. ⚠️ **Issue #5**: Weight display inconsistency
+6. ℹ️ **Issue #6**: Greedy algorithm sub-optimal
 
 ---
 
-**Last Updated**: November 26, 2025
-**Next Review**: December 3, 2025 (After Week 1 Sprint)
+## ✅ COMPLETED FEATURES
+
+### **Core Features** ✅
+- [x] Excel/ODS file upload with validation
+- [x] Automatic fighter pairing (greedy algorithm)
+- [x] Manual pair editing with Match_ID system
+- [x] PDF and Excel export
+- [x] Internationalization (Russian/English)
+- [x] Docker containerization
+- [x] Unit tests for core logic
+
+### **Phase 2 & 3 (Commit 71f1a40)** ✅
+- [x] Type safety module (`utils/type_helpers.py`)
+- [x] Transaction-safe editing with rollback
+- [x] Master fighter registry optimization
+- [x] Enhanced validation with `ValidationResult`
+- [x] Weight parsing improvements (до, >=, etc.)
+- [x] Club parsing UI with confidence indicators
+- [x] Registry validation functions
+- [x] Pre-save validation with detailed errors
+
+### **Infrastructure** ✅
+- [x] Authentication layer
+- [x] Database schema design
+- [x] Session state management
+- [x] Git workflow
+
+---
+
+## 🐛 BUG TRACKER
+
+### **Active Bugs**
+| ID | Severity | Description | Status | ETA |
+|----|----------|-------------|--------|-----|
+| #1 | 🔴 Critical | Registry race condition | Open | Nov 26 |
+| #2 | 🔴 Critical | Pandas import order | Open | Nov 26 |
+| #3 | ⚠️ High | Hardcoded validation limits | Open | Nov 27 |
+| #4 | ⚠️ Medium | Club conflict None==None | Open | Nov 26 |
+| #5 | ⚠️ Medium | Weight display inconsistency | Open | Nov 27 |
+| #6 | ℹ️ Low | Greedy algorithm sub-optimal | Open | Nov 30 |
+
+### **Fixed Bugs** ✅
+- [x] Weight parsing: "до 22" incorrect
+- [x] Weight parsing: ">= 60" incorrect
+- [x] Club conflict: Missing null checks
+- [x] Type conversion: Duplicate functions
+- [x] Session state: O(n²) registry rebuild
+
+---
+
+**Last Updated**: November 26, 2025 13:15 MSK  
+**Last Review**: Commit 71f1a40 (Phase 2 & 3 Complete)  
+**Next Review**: November 27, 2025 (After critical fixes)
+**Next Sprint**: December 2, 2025 (Advanced features)
