@@ -64,6 +64,8 @@ if "unmatched" not in st.session_state:
     st.session_state["unmatched"] = pd.DataFrame()
 if "bracket_winners" not in st.session_state:
     st.session_state["bracket_winners"] = {}
+if "master_fighter_registry" not in st.session_state:
+    st.session_state["master_fighter_registry"] = {}
 
 # Create tabs
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
