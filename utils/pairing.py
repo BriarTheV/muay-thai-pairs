@@ -1,7 +1,7 @@
 # utils/pairing.py - Core pairing logic
 
 import pandas as pd
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict, Any
 from dataclasses import dataclass
 import re
 from .type_helpers import safe_int_conversion
@@ -34,6 +34,31 @@ WEIGHT_CATEGORIES = {
 }
 
 WEIGHT_CLASSES_ADULT = WEIGHT_CATEGORIES["adult"]
+
+
+def find_weight_category_by_max(max_weight: float) -> Optional[Dict[str, Any]]:
+    """Find weight category by its maximum weight limit.
+
+    Used to correctly parse "до X" (up to X kg) expressions by identifying
+    the IFMA weight category that has X as its upper limit.
+
+    Args:
+        max_weight: The upper weight limit (e.g., 54 for Fly category)
+
+    Returns:
+        Category dict {'name': str, 'min': float, 'max': float} or None if not found
+
+    Examples:
+        >>> find_weight_category_by_max(54)
+        {'name': 'Fly', 'min': 51.5, 'max': 54}
+        >>> find_weight_category_by_max(55)  # No exact match
+        None
+    """
+    for category in WEIGHT_CLASSES_ADULT:
+        # Use small epsilon for floating point comparison
+        if abs(category["max"] - max_weight) < 0.01:
+            return category
+    return None
 
 
 def normalize_gender(gender: str) -> str:
@@ -375,10 +400,17 @@ def parse_weight_range(weight_str: str) -> Tuple[float, float]:
 
     weight_str = str(weight_str).lower().strip()
 
-    # Russian "до" (under/up to)
+    # Russian "до" (under/up to) - NOW IDENTIFIES WEIGHT CATEGORY
     if "до" in weight_str:
         try:
             max_weight = float(re.search(r"до\s*(\d+(?:\.\d+)?)", weight_str).group(1))
+
+            # Try to find matching IFMA weight category first
+            category = find_weight_category_by_max(max_weight)
+            if category:
+                return (category["min"], category["max"])
+
+            # Fallback: treat as range (0, max_weight) for backward compatibility
             return (0, max_weight)
         except (ValueError, AttributeError):
             pass

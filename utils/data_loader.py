@@ -13,10 +13,19 @@ def parse_weight_category(text: str) -> Tuple[float, float]:
 
     text = str(text).lower().strip()
 
-    # Russian "до" (under/up to)
+    # Russian "до" (under/up to) - IDENTIFIES WEIGHT CATEGORY
     if "до" in text:
         try:
             max_weight = float(re.search(r"до\s*(\d+(?:\.\d+)?)", text).group(1))
+
+            # Import and use the category lookup from pairing module
+            from utils.pairing import find_weight_category_by_max
+
+            category = find_weight_category_by_max(max_weight)
+            if category:
+                return (category["min"], category["max"])
+
+            # Fallback: treat as range (0, max_weight) for backward compatibility
             return (0, max_weight)
         except Exception:
             pass

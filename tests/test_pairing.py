@@ -178,6 +178,113 @@ def test_normalize_class():
     assert normalize_class("X") == "X"
 
 
+def test_find_weight_category_by_max():
+    """Test weight category lookup by maximum weight limit."""
+    from utils.pairing import find_weight_category_by_max
+
+    # Test valid IFMA weight limits
+    fly = find_weight_category_by_max(54)
+    assert fly is not None
+    assert fly["name"] == "Fly"
+    assert fly["min"] == 51.5
+    assert fly["max"] == 54
+
+    bantam = find_weight_category_by_max(57)
+    assert bantam is not None
+    assert bantam["name"] == "Bantam"
+    assert bantam["min"] == 54
+    assert bantam["max"] == 57
+
+    light_fly = find_weight_category_by_max(51.5)
+    assert light_fly is not None
+    assert light_fly["name"] == "Light Fly"
+    assert light_fly["min"] == 0
+    assert light_fly["max"] == 51.5
+
+    heavy = find_weight_category_by_max(999)
+    assert heavy is not None
+    assert heavy["name"] == "Heavy"
+    assert heavy["min"] == 100
+    assert heavy["max"] == 999
+
+    # Test non-existent categories
+    assert find_weight_category_by_max(55) is None  # Between Fly and Bantam
+    assert find_weight_category_by_max(52) is None  # Between Light Fly and Fly
+    assert find_weight_category_by_max(1000) is None  # Above Heavy
+
+
+def test_parse_weight_range_do_category():
+    """Test that 'до X' correctly identifies IFMA weight categories."""
+    from utils.pairing import parse_weight_range
+
+    # Test valid IFMA weight limits - should return category ranges
+    assert parse_weight_range("до 54") == (51.5, 54)  # Fly category
+    assert parse_weight_range("до 57") == (54, 57)  # Bantam category
+    assert parse_weight_range("до 60") == (57, 60)  # Feather category
+    assert parse_weight_range("до 51.5") == (0, 51.5)  # Light Fly category
+    assert parse_weight_range("до 999") == (100, 999)  # Heavy category
+
+    # Test invalid weight limits - should fallback to (0, X)
+    assert parse_weight_range("до 55") == (0, 55)  # No exact match
+    assert parse_weight_range("до 52") == (0, 52)  # No exact match
+
+    # Test malformed input - should not crash
+    assert parse_weight_range("до") == (0, 999)  # Missing number
+    assert parse_weight_range("до abc") == (0, 999)  # Invalid number
+
+
+def test_parse_weight_category_do_category():
+    """Test that parse_weight_category also handles 'до X' correctly."""
+    from utils.data_loader import parse_weight_category
+
+    # Test valid IFMA weight limits
+    assert parse_weight_category("до 54") == (51.5, 54)  # Fly category
+    assert parse_weight_category("до 57") == (54, 57)  # Bantam category
+
+    # Test invalid weight limits - should fallback
+    assert parse_weight_category("до 55") == (0, 55)  # No exact match
+
+
+def test_weight_category_assignment_integration():
+    """Integration test: ensure 'до X' creates fighters in correct weight categories."""
+    from utils.pairing import create_fighters, get_weight_category
+    import pandas as pd
+
+    # Create test data with "до X" specifications
+    df = pd.DataFrame(
+        {
+            "Name": ["Fighter1", "Fighter2", "Fighter3"],
+            "Gender": ["M", "M", "M"],
+            "Age": [20, 20, 20],
+            "Weight": ["до 54", "до 57", "до 60"],  # Fly, Bantam, Feather
+            "Club": ["Club1", "Club2", "Club3"],
+            "Trainer": ["T1", "T2", "T3"],
+            "Record": [5, 3, 8],
+            "Class": ["А", "Б", "С"],  # Russian class values
+        }
+    )
+
+    # Create fighters
+    fighters = create_fighters(df)
+
+    # Check that weight categories are assigned correctly
+    fighter1 = next(f for f in fighters if f.name == "Fighter1")
+    fighter2 = next(f for f in fighters if f.name == "Fighter2")
+    fighter3 = next(f for f in fighters if f.name == "Fighter3")
+
+    # Fighter1: "до 54" should be in Fly category
+    assert fighter1.weight_min == 51.5 and fighter1.weight_max == 54
+    assert get_weight_category((51.5 + 54) / 2) == "Fly"
+
+    # Fighter2: "до 57" should be in Bantam category
+    assert fighter2.weight_min == 54 and fighter2.weight_max == 57
+    assert get_weight_category((54 + 57) / 2) == "Bantam"
+
+    # Fighter3: "до 60" should be in Feather category
+    assert fighter3.weight_min == 57 and fighter3.weight_max == 60
+    assert get_weight_category((57 + 60) / 2) == "Feather"
+
+
 def test_would_orphan_fighter():
     """Test the orphaning detection function."""
     from utils.pairing import would_orphan_fighter
