@@ -153,7 +153,12 @@ def create_combined_fighters_dataframe():
         }
         all_fighters.append(fighter_data)
 
-    return pd.DataFrame(all_fighters)
+    df = pd.DataFrame(all_fighters)
+
+    # Ensure all weights are numeric for proper calculations
+    df["Weight"] = pd.to_numeric(df["Weight"], errors="coerce").fillna(0)
+
+    return df
 
 
 def update_session_state_from_match_id(edited_df):
@@ -182,6 +187,10 @@ def update_session_state_from_match_id(edited_df):
             # Create match record for first two fighters
             f1, f2 = fighters[0], fighters[1]
 
+            # Ensure weights are numeric
+            weight1 = pd.to_numeric(f1["Weight"], errors="coerce") or 0
+            weight2 = pd.to_numeric(f2["Weight"], errors="coerce") or 0
+
             match_record = {
                 "Match_ID": match_id,
                 "Fighter_1": f1["Name"],
@@ -189,11 +198,11 @@ def update_session_state_from_match_id(edited_df):
                 "Gender": f1["Gender"],
                 "Age_1": f1["Age"],
                 "Age_2": f2["Age"],
-                "Weight_1": f1["Weight"],
-                "Weight_2": f2["Weight"],
+                "Weight_1": weight1,
+                "Weight_2": weight2,
                 "Club_1": f1["Club"],
                 "Club_2": f2["Club"],
-                "Weight_Diff": abs(f1["Weight"] - f2["Weight"]),
+                "Weight_Diff": abs(weight1 - weight2),
             }
             new_matches.append(match_record)
 
