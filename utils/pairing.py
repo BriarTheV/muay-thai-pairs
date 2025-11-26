@@ -70,6 +70,36 @@ def get_max_diff_15_16(weight):
 CLASS_ORDER = {"А": 4, "Б": 3, "В": 2, "С": 2, "Г": 1, "0 боев": 0}
 
 
+def safe_int_conversion(value) -> int:
+    """Safely convert various data types to integer, handling strings, bytes, floats, etc."""
+    if pd.isna(value) or value == "" or value is None:
+        return 0
+
+    try:
+        # Handle bytes objects (decode if needed)
+        if isinstance(value, bytes):
+            value = value.decode("utf-8", errors="ignore")
+
+        # Convert to string first to handle all cases
+        str_val = str(value).strip()
+
+        # Remove any non-numeric characters except decimal point
+        import re
+
+        numeric_str = re.sub(r"[^\d.]", "", str_val)
+
+        # If empty after cleaning, return 0
+        if not numeric_str:
+            return 0
+
+        # Convert to float first, then int (handles "5.0" -> 5)
+        return int(float(numeric_str))
+
+    except (ValueError, TypeError, AttributeError):
+        # If conversion fails, return 0
+        return 0
+
+
 def get_class_rank(class_level):
     """Get numerical rank for class level."""
     if not class_level or pd.isna(class_level):
@@ -392,9 +422,13 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
         weight_min, weight_max = parse_weight_range(weight_str)
         weight_class = get_weight_category((weight_min + weight_max) / 2)
 
-        # Record column contains total fights
-        total_fights = int(row.get("Record", row.get("Total_Fights", 0)))
-        record = int(row.get("Wins", 0))  # Wins from separate column if available
+        # Record column contains total fights - ensure robust type conversion
+        record_val = row.get("Record", row.get("Total_Fights", 0))
+        total_fights = safe_int_conversion(record_val)
+
+        # Wins from separate column if available - ensure robust type conversion
+        wins_val = row.get("Wins", 0)
+        record = safe_int_conversion(wins_val)
 
         # Parse club hierarchy
         club_str = row["Club"]
@@ -725,8 +759,8 @@ def pair_fighters(
                 or current_fighter.weight_min == current_fighter.weight_max
                 else f"{current_fighter.weight_min}-{current_fighter.weight_max}",
                 "Red_Age": current_fighter.age,
-                "Red_Record": current_fighter.record,
-                "Red_Total_Fights": current_fighter.total_fights,
+                "Red_Record": safe_int_conversion(current_fighter.record),
+                "Red_Total_Fights": safe_int_conversion(current_fighter.total_fights),
                 "Blue_Corner": best_opponent.name,
                 "Blue_Club": best_opponent.club,
                 "Blue_Weight": f">={best_opponent.weight_max}"
@@ -734,8 +768,8 @@ def pair_fighters(
                 or best_opponent.weight_min == best_opponent.weight_max
                 else f"{best_opponent.weight_min}-{best_opponent.weight_max}",
                 "Blue_Age": best_opponent.age,
-                "Blue_Record": best_opponent.record,
-                "Blue_Total_Fights": best_opponent.total_fights,
+                "Blue_Record": safe_int_conversion(best_opponent.record),
+                "Blue_Total_Fights": safe_int_conversion(best_opponent.total_fights),
                 "Weight_Diff": abs(
                     current_fighter.weight_min - best_opponent.weight_min
                 ),
@@ -766,7 +800,7 @@ def pair_fighters(
                 else f">={f.weight_max}",
                 "Club": f.club,
                 "Trainer": f.trainer,
-                "Record": f.record,
+                "Record": safe_int_conversion(f.record),
                 "Class": f.class_level,
             }
             for f in unmatched
