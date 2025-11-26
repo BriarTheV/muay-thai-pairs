@@ -667,20 +667,62 @@ def calculate_pair_score(f1: Fighter, f2: Fighter) -> float:
     return score
 
 
+def would_orphan_fighter(
+    f1: Fighter, f2: Fighter, remaining: List[Fighter]
+) -> Optional[Fighter]:
+    """Check if pairing f1-f2 would leave any remaining fighter with no valid opponents.
+
+    This implements the look-ahead heuristic to prevent orphaning constrained fighters.
+
+    Args:
+        f1: First fighter in proposed pair
+        f2: Second fighter in proposed pair
+        remaining: List of fighters still available for pairing
+
+    Returns:
+        The orphaned fighter if this pairing would orphan someone, None if safe to pair
+    """
+    # Create temporary list without the proposed pair
+    temp_remaining = [f for f in remaining if f not in (f1, f2)]
+
+    # Check each remaining fighter to see if they would be orphaned
+    for fighter in temp_remaining:
+        # Count how many valid opponents this fighter has left
+        valid_opponents = 0
+
+        for opponent in temp_remaining:
+            if opponent == fighter:
+                continue
+
+            # Check if this pairing is valid
+            if is_valid_pair(fighter, opponent).is_valid:
+                valid_opponents += 1
+
+        # If this fighter has no valid opponents left, they would be orphaned
+        if valid_opponents == 0:
+            return fighter  # This fighter would be orphaned
+
+    return None  # Safe to proceed with this pairing
+
+
 def pair_fighters(
     df: pd.DataFrame,
     club_conflict_level: int = 3,  # Default to level 3 for this tournament
     sort_strategy: str = "quantity",  # Default to quantity for max pairings
     allow_subgroup_pairings: bool = True,  # Allow different subgroups from same club
+    use_lookahead: bool = False,  # Use look-ahead heuristic to prevent orphaning
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Perform greedy pairing of fighters based on official rules.
+    Perform pairing of fighters based on official rules.
+
+    Uses greedy algorithm by default, or greedy + look-ahead heuristic when enabled.
 
     Args:
         df: DataFrame with fighter data
         club_conflict_level: Level of club conflict checking (1-4)
         sort_strategy: "quality" (experienced first) or "quantity" (maximize pairs)
         allow_subgroup_pairings: Allow different subgroups from same club to pair
+        use_lookahead: Use look-ahead heuristic to prevent orphaning constrained fighters
 
     Returns:
         matches_df: DataFrame with paired fighters
@@ -787,7 +829,68 @@ def pair_fighters(
                     best_score = score
 
         if best_opponent:
-            # Create match
+            # Look-ahead check: ensure this pairing doesn't orphan constrained fighters
+            if use_lookahead:
+                orphaned = would_orphan_fighter(
+                    current_fighter, best_opponent, fighters
+                )
+                if orphaned:
+                    # This pairing would orphan someone - try to find an alternative
+                    # Look for the next best opponent that doesn't cause orphaning
+                    alternative_found = False
+
+                    # Get all valid opponents sorted by score (skip the best one we already tried)
+                    scored_opponents = []
+                    for i, opponent in enumerate(fighters):
+                        if opponent == best_opponent:
+                            continue  # Skip the one we already tried
+
+                        # Check club conflicts
+                        conflict = check_club_conflict(
+                            current_fighter, opponent, club_conflict_level
+                        )
+
+                        # Tournament-specific override for subgroups
+                        if (
+                            conflict
+                            and allow_subgroup_pairings
+                            and current_fighter.club_region == opponent.club_region
+                            and current_fighter.club_name == opponent.club_name
+                            and current_fighter.club_subgroup != opponent.club_subgroup
+                            and current_fighter.club_subgroup is not None
+                            and opponent.club_subgroup is not None
+                        ):
+                            conflict = False
+
+                        if conflict:
+                            continue
+
+                        # Check if valid match
+                        validation = is_valid_pair(current_fighter, opponent)
+                        if validation.is_valid:
+                            score = calculate_pair_score(current_fighter, opponent)
+                            scored_opponents.append((opponent, score, i))
+
+                    # Sort by score (best first)
+                    scored_opponents.sort(key=lambda x: x[1])
+
+                    # Try alternatives
+                    for alt_opponent, alt_score, alt_idx in scored_opponents:
+                        if not would_orphan_fighter(
+                            current_fighter, alt_opponent, fighters
+                        ):
+                            # Found a safe alternative
+                            best_opponent = alt_opponent
+                            best_opponent_idx = alt_idx
+                            alternative_found = True
+                            break
+
+                    if not alternative_found:
+                        # No safe pairing found - mark current fighter as unmatched
+                        unmatched.append(current_fighter)
+                        continue
+
+            # Create match (either original or alternative)
             match = {
                 "Match_ID": len(matches) + 1,
                 "Red_Corner": current_fighter.name,

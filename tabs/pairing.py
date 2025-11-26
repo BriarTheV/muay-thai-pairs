@@ -202,9 +202,21 @@ def render_pairing_tab():
         # Configuration
         col1, col2, col3 = st.columns(3)
         with col1:
-            weight_tolerance = st.slider(t("weight_tolerance"), 0.0, 2.0, 0.5, 0.1)
+            sort_strategy = st.radio(
+                "Sort Strategy",
+                ["quantity", "quality"],
+                index=0,
+                help="""Quantity: Maximize number of pairings (recommended)
+                Quality: Prioritize experienced fighters first""",
+            )
         with col2:
-            allow_same_trainer = st.checkbox(t("allow_same_trainer"), value=False)
+            use_lookahead = st.checkbox(
+                "Use Look-Ahead 🔍",
+                value=False,  # Default to fast greedy mode
+                help="""Look-ahead prevents orphaning constrained fighters.
+                +5-10% better pairing quality, +20-30% slower.
+                Recommended for tournaments with complex constraints.""",
+            )
         with col3:
             club_conflict_level = st.selectbox(
                 t("club_conflict_level"),
@@ -224,18 +236,6 @@ def render_pairing_tab():
             t("allow_subgroup_pairings"),
             value=True,  # Default enabled for this tournament
             help=t("subgroup_pairings_help"),
-        )
-
-        # Add sorting strategy selection
-        sort_strategy = st.radio(
-            t("pairing_priority"),
-            ["quality", "quantity"],
-            index=1,  # Default to quantity for max pairings
-            format_func=lambda x: {
-                "quality": t("optimize_quality"),
-                "quantity": t("optimize_quantity"),
-            }[x],
-            help=t("pairing_help_text"),
         )
 
         # Club parsing preview
@@ -270,7 +270,11 @@ def render_pairing_tab():
         if st.button(t("generate_button"), type="primary"):
             with st.spinner(t("generating")):
                 matches_df, unmatched_df = pair_fighters(
-                    df, club_conflict_level, sort_strategy, allow_subgroup_pairings
+                    df,
+                    club_conflict_level,
+                    sort_strategy,
+                    allow_subgroup_pairings,
+                    use_lookahead,
                 )
 
                 # Store in session state

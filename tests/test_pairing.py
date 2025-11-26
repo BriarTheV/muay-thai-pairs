@@ -147,3 +147,63 @@ def test_is_valid_pair():
     assert is_valid_pair(f1, f2).is_valid  # Valid
     assert not is_valid_pair(f1, f3).is_valid  # Different gender
     assert not is_valid_pair(f1, f4).is_valid  # Same club
+
+
+def test_would_orphan_fighter():
+    """Test the orphaning detection function."""
+    from utils.pairing import would_orphan_fighter
+
+    # Create test fighters with constrained matching
+    f1 = Fighter(0, "A", "M", 20, 70.0, 70.0, "C1", "T1", 0, 5, "Light Middleweight")
+    f2 = Fighter(1, "B", "M", 20, 70.2, 70.2, "C2", "T2", 0, 3, "Light Middleweight")
+    f3 = Fighter(
+        2, "C", "M", 20, 85.0, 85.0, "C3", "T3", 0, 2, "Cruiserweight"
+    )  # Can only pair with f4
+    f4 = Fighter(
+        3, "D", "M", 20, 85.1, 85.1, "C4", "T4", 0, 1, "Cruiserweight"
+    )  # Can only pair with f3
+
+    # f2 can only pair with f1 (same weight class), so pairing f1-f4 would orphan f2
+    remaining = [f2, f3, f4]
+    assert would_orphan_fighter(f1, f4, remaining) == f2
+
+    # Pairing f1-f2 should not orphan anyone (f3 and f4 can still pair)
+    remaining = [f2, f3, f4]
+    assert would_orphan_fighter(f1, f2, remaining) is None
+
+    # Pairing f3-f4 should not orphan anyone
+    remaining = [f1, f2]
+    assert would_orphan_fighter(f3, f4, remaining) is None
+
+
+def test_lookahead_vs_greedy():
+    """Test that look-ahead improves pairing quality in constrained scenarios."""
+    # Create a scenario where greedy fails but look-ahead succeeds
+    df = pd.DataFrame(
+        {
+            "Name": ["A", "B", "C", "D", "E", "F"],
+            "Gender": ["M", "M", "M", "M", "M", "M"],
+            "Age": [20, 20, 20, 20, 20, 20],
+            "Weight": [70.0, 70.1, 75.0, 75.1, 80.0, 80.1],  # Two weight groups
+            "Club": ["C1", "C1", "C2", "C2", "C3", "C3"],  # Two fighters per club
+            "Trainer": ["T1", "T1", "T2", "T2", "T3", "T3"],
+            "Record": [0, 0, 0, 0, 0, 0],
+        }
+    )
+
+    # With club conflicts, greedy might leave some unmatched
+    matches_g, unmatched_g = pair_fighters(
+        df, club_conflict_level=1, use_lookahead=False
+    )
+    matches_l, unmatched_l = pair_fighters(
+        df, club_conflict_level=1, use_lookahead=True
+    )
+
+    # Look-ahead should match at least as many as greedy
+    assert len(matches_l) >= len(matches_g)
+    assert len(unmatched_l) <= len(unmatched_g)
+
+    # In this scenario, all should be matchable
+    total_fighters = len(df)
+    matched_l = len(matches_l) * 2
+    assert matched_l >= total_fighters - 2  # Allow for at most 2 unmatched
