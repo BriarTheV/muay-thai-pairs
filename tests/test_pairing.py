@@ -293,16 +293,23 @@ def test_would_orphan_fighter():
     )  # Can only pair with f3
 
     # f2 can only pair with f1 (same weight class), so pairing f1-f4 would orphan f2
-    remaining = [f2, f3, f4]
-    assert would_orphan_fighter(f1, f4, remaining) == f2
+    # This should be detected as problematic (would orphan)
+    remaining = [f1, f2, f3, f4]  # Include all fighters
+    assert would_orphan_fighter(f1, f4, remaining, threshold=1) == True
 
-    # Pairing f1-f2 should not orphan anyone (f3 and f4 can still pair)
-    remaining = [f2, f3, f4]
-    assert would_orphan_fighter(f1, f2, remaining) is None
+    # Pairing f1-f2 should not orphan anyone catastrophically (f3 and f4 can still pair)
+    remaining = [f1, f2, f3, f4]
+    assert would_orphan_fighter(f1, f2, remaining, threshold=1) == False
 
     # Pairing f3-f4 should not orphan anyone
-    remaining = [f1, f2]
-    assert would_orphan_fighter(f3, f4, remaining) is None
+    remaining = [f1, f2, f3, f4]
+    assert would_orphan_fighter(f3, f4, remaining, threshold=1) == False
+
+    # Test threshold behavior
+    remaining = [f1, f2, f3, f4]
+    assert (
+        would_orphan_fighter(f1, f4, remaining, threshold=2) == False
+    )  # 1 orphan < threshold 2
 
 
 def test_lookahead_vs_greedy():

@@ -971,24 +971,29 @@ def calculate_pair_score(f1: Fighter, f2: Fighter) -> float:
 
 
 def would_orphan_fighter(
-    f1: Fighter, f2: Fighter, remaining: List[Fighter]
-) -> Optional[Fighter]:
-    """Check if pairing f1-f2 would leave any remaining fighter with no valid opponents.
+    f1: Fighter, f2: Fighter, remaining: List[Fighter], threshold: int = 2
+) -> bool:
+    """Check if pairing f1-f2 would orphan MULTIPLE fighters (catastrophic).
 
-    This implements the look-ahead heuristic to prevent orphaning constrained fighters.
+    This implements the look-ahead heuristic to prevent catastrophic orphaning
+    while allowing normal orphaning that occurs in greedy algorithms.
 
     Args:
         f1: First fighter in proposed pair
         f2: Second fighter in proposed pair
-        remaining: List of fighters still available for pairing
+        remaining: List of ALL fighters still available (must include f1 and f2)
+        threshold: Maximum orphans to tolerate (default 2)
 
     Returns:
-        The orphaned fighter if this pairing would orphan someone, None if safe to pair
+        True if pairing would orphan > threshold fighters (BAD - avoid)
+        False if orphaning is minimal/acceptable (OK to pair)
     """
     # Create temporary list without the proposed pair
     temp_remaining = [f for f in remaining if f not in (f1, f2)]
 
-    # Check each remaining fighter to see if they would be orphaned
+    # Count how many fighters would be orphaned
+    orphan_count = 0
+
     for fighter in temp_remaining:
         # Count how many valid opponents this fighter has left
         valid_opponents = 0
@@ -1003,9 +1008,10 @@ def would_orphan_fighter(
 
         # If this fighter has no valid opponents left, they would be orphaned
         if valid_opponents == 0:
-            return fighter  # This fighter would be orphaned
+            orphan_count += 1
 
-    return None  # Safe to proceed with this pairing
+    # Only block if MANY fighters would be orphaned (catastrophic)
+    return orphan_count > threshold
 
 
 def pair_fighters(
@@ -1126,74 +1132,22 @@ def pair_fighters(
 
             if validation.is_valid:
                 score = calculate_pair_score(current_fighter, opponent)
+
+                # Add orphan penalty if look-ahead is enabled (penalty-based approach)
+                if use_lookahead:
+                    would_orphan = would_orphan_fighter(
+                        current_fighter, opponent, fighters, threshold=2
+                    )
+                    if would_orphan:
+                        score += 100  # Heavy penalty but don't block entirely
+
                 if score < best_score:
                     best_opponent = opponent
                     best_opponent_idx = i
                     best_score = score
 
+        # Decision point: create match with best available opponent
         if best_opponent:
-            # Look-ahead check: ensure this pairing doesn't orphan constrained fighters
-            if use_lookahead:
-                orphaned = would_orphan_fighter(
-                    current_fighter, best_opponent, fighters
-                )
-                if orphaned:
-                    # This pairing would orphan someone - try to find an alternative
-                    # Look for the next best opponent that doesn't cause orphaning
-                    alternative_found = False
-
-                    # Get all valid opponents sorted by score (skip the best one we already tried)
-                    scored_opponents = []
-                    for i, opponent in enumerate(fighters):
-                        if opponent == best_opponent:
-                            continue  # Skip the one we already tried
-
-                        # Check club conflicts
-                        conflict = check_club_conflict(
-                            current_fighter, opponent, club_conflict_level
-                        )
-
-                        # Tournament-specific override for subgroups
-                        if (
-                            conflict
-                            and allow_subgroup_pairings
-                            and current_fighter.club_region == opponent.club_region
-                            and current_fighter.club_name == opponent.club_name
-                            and current_fighter.club_subgroup != opponent.club_subgroup
-                            and current_fighter.club_subgroup is not None
-                            and opponent.club_subgroup is not None
-                        ):
-                            conflict = False
-
-                        if conflict:
-                            continue
-
-                        # Check if valid match
-                        validation = is_valid_pair(current_fighter, opponent)
-                        if validation.is_valid:
-                            score = calculate_pair_score(current_fighter, opponent)
-                            scored_opponents.append((opponent, score, i))
-
-                    # Sort by score (best first)
-                    scored_opponents.sort(key=lambda x: x[1])
-
-                    # Try alternatives
-                    for alt_opponent, alt_score, alt_idx in scored_opponents:
-                        if not would_orphan_fighter(
-                            current_fighter, alt_opponent, fighters
-                        ):
-                            # Found a safe alternative
-                            best_opponent = alt_opponent
-                            best_opponent_idx = alt_idx
-                            alternative_found = True
-                            break
-
-                    if not alternative_found:
-                        # No safe pairing found - mark current fighter as unmatched
-                        unmatched.append(current_fighter)
-                        continue
-
-            # Create match (either original or alternative)
             match = {
                 "Match_ID": len(matches) + 1,
                 "Red_Corner": current_fighter.name,
@@ -1223,10 +1177,12 @@ def pair_fighters(
                 or get_weight_category(current_fighter.weight_min),
             }
             matches.append(match)
-            # Remove opponent from the pool
+
+            # Remove opponent from the pool (current_fighter already removed)
             fighters.pop(best_opponent_idx)
         else:
-            # No match found
+            # No match found for current fighter
+            fighters.pop(0)  # Remove current fighter from consideration
             unmatched.append(current_fighter)
 
     # Handle remaining fighter
