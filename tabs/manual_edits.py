@@ -6,8 +6,16 @@ from utils.type_helpers import safe_int_conversion
 
 def format_weight_string(fighter):
     """Format weight string to match pairing algorithm output."""
-    weight_min = fighter["weight_min"]
-    weight_max = fighter["weight_max"]
+    # Ensure we have a dictionary with the expected keys
+    if not isinstance(fighter, dict):
+        # Handle case where individual weight values are passed
+        if isinstance(fighter, (int, float)) and len(locals()) > 1:
+            # This shouldn't happen, but handle gracefully
+            return f">={fighter}"
+        raise TypeError(f"format_weight_string expects a dict, got {type(fighter)}")
+
+    weight_min = fighter.get("weight_min", fighter.get("Weight", 0))
+    weight_max = fighter.get("weight_max", weight_min)
 
     if weight_min <= 0 or weight_min == weight_max:
         return f">={weight_max}"
