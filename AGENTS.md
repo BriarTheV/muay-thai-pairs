@@ -32,19 +32,21 @@ When writing logic or tests, adhere to these constraints:
 *   `utils/pairing.py`: The core algorithm (Greedy matching logic).
 *   `utils/data_loader.py`: Excel validation and cleaning.
 *   `utils/pdf_gen.py`: FPDF layout generation.
-*   `tabs/manual_edits.py`: Manual adjustments interface with drag-and-drop pairing.
+*   `tabs/manual_edits.py`: Manual adjustments interface using Match_ID method.
 
-## ✏️ Manual Adjustments (Drag & Drop)
-*   **Two-Tab Interface**:
-    *   **Adjust Existing Pairs**: Enhanced data editor for modifying current matches
-    *   **Drag & Drop Pairing**: Visual interface for pairing unmatched fighters
-*   **Drag & Drop Features**:
-    *   Visual fighter cards with gender-based color coding
-    *   Real-time validation feedback during drag operations
-    *   Automatic pairing confirmation with rule enforcement
-    *   Responsive design supporting mouse and touch interactions
-*   **Validation Rules**: Enforces all tournament constraints (gender, age, weight, club conflicts)
-*   **Dependencies**: Requires `streamlit-elements==0.1.*` for drag-and-drop functionality
+## ✏️ Manual Adjustments (Match_ID Method)
+*   **Single Interface**: Streamlined fighter assignment using Match_ID column
+*   **Match_ID System**:
+    *   `0` = Unmatched fighter (available for pairing)
+    *   `1`, `2`, `3`... = Pair group numbers (fighters with same ID are paired)
+*   **Key Features**:
+    *   Spreadsheet-style editing with st.data_editor
+    *   Real-time synchronization between UI and session state
+    *   Comprehensive validation with status indicators
+    *   Detailed pairing statistics and efficiency metrics
+    *   Automatic pair creation/modification via Match_ID changes
+*   **Validation**: Real-time feedback on weight/age compatibility and pairing rules
+*   **Advantages**: Extremely reliable, no custom components, works on all devices
 
 ## 🔐 Authentication (Supabase)
 *   **Library**: `supabase` (Python client).
