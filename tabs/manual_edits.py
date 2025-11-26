@@ -4,6 +4,29 @@ from utils.translations import translations
 from utils.type_helpers import safe_int_conversion
 
 
+def get_display_weight_class(fighter_data: dict) -> str:
+    """Get appropriate VRVS weight class display based on fighter demographics."""
+    from utils.pairing import get_weight_categories_for_demographic
+
+    age = fighter_data.get("age", 20)
+    gender = fighter_data.get("gender", "male")
+    weight = (fighter_data.get("weight_min", 0) + fighter_data.get("weight_max", 0)) / 2
+
+    # Get appropriate VRVS categories for this demographic
+    categories = get_weight_categories_for_demographic(age, gender)
+
+    # Find which category this fighter belongs to
+    for category in categories:
+        if category["min"] <= weight < category["max"]:
+            return category["name"]
+
+    # Fallback to IFMA categories if no VRVS match
+    from utils.pairing import get_weight_category
+
+    ifma_category = get_weight_category(weight)
+    return ifma_category or "Unknown"
+
+
 def format_weight_string(fighter):
     """Format weight string to match pairing algorithm output."""
     # Ensure we have a dictionary with the expected keys
@@ -327,9 +350,8 @@ def create_combined_fighters_dataframe():
             "Name": fighter_data["name"],
             "Gender": fighter_data["gender"],
             "Age": fighter_data["age"],
-            "Weight": format_weight_string(
-                fighter_data
-            ),  # Consistent weight formatting
+            "Weight": format_weight_string(fighter_data),  # Weight range
+            "Category": get_display_weight_class(fighter_data),  # VRVS weight class
             "Club": fighter_data["club"],
             "Match_ID": fighter_data.get("current_match_id", 0),
             "Status": fighter_data.get("status", "unknown").title(),

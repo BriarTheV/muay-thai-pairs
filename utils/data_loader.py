@@ -6,22 +6,30 @@ import re
 from .pairing import CLASS_ORDER
 
 
-def parse_weight_category(text: str) -> Tuple[float, float]:
-    """Parse weight category from text, supporting 'до X', ranges 'X-Y', and single numbers."""
+def parse_weight_category(
+    text: str, age: int = None, gender: str = None
+) -> Tuple[float, float]:
+    """Parse weight category from text, supporting 'до X', ranges 'X-Y', and single numbers.
+
+    Args:
+        text: Weight specification text
+        age: Fighter's age for VRVS-aware parsing (optional)
+        gender: Fighter's gender for VRVS-aware parsing (optional)
+    """
     if pd.isna(text) or text == "":
         return (0, 999)  # Default wide range
 
     text = str(text).lower().strip()
 
-    # Russian "до" (under/up to) - IDENTIFIES WEIGHT CATEGORY
+    # Russian "до" (under/up to) - IDENTIFIES VRVS WEIGHT CATEGORY
     if "до" in text:
         try:
             max_weight = float(re.search(r"до\s*(\d+(?:\.\d+)?)", text).group(1))
 
-            # Import and use the category lookup from pairing module
+            # Import and use the VRVS category lookup from pairing module
             from utils.pairing import find_weight_category_by_max
 
-            category = find_weight_category_by_max(max_weight)
+            category = find_weight_category_by_max(max_weight, age, gender)
             if category:
                 return (category["min"], category["max"])
 

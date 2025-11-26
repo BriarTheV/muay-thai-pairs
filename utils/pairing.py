@@ -16,7 +16,130 @@ CLASS_ORDER = {
 }
 
 WEIGHT_CATEGORIES = {
-    "adult": [
+    # VRVS (All-Russian Register of Sports) Categories
+    # Adults 17-40 years
+    "adult_male": [
+        {"name": "45kg", "min": 42, "max": 45},
+        {"name": "48kg", "min": 45, "max": 48},
+        {"name": "51kg", "min": 48, "max": 51},
+        {"name": "54kg", "min": 51, "max": 54},
+        {"name": "57kg", "min": 54, "max": 57},
+        {"name": "60kg", "min": 57, "max": 60},
+        {"name": "63.5kg", "min": 60, "max": 63.5},
+        {"name": "67kg", "min": 63.5, "max": 67},
+        {"name": "71kg", "min": 67, "max": 71},
+        {"name": "75kg", "min": 71, "max": 75},
+        {"name": "75+kg", "min": 75, "max": 999},  # Open weight
+    ],
+    "adult_female": [
+        {"name": "45kg", "min": 42, "max": 45},
+        {"name": "48kg", "min": 45, "max": 48},
+        {"name": "51kg", "min": 48, "max": 51},
+        {"name": "54kg", "min": 51, "max": 54},
+        {"name": "57kg", "min": 54, "max": 57},
+        {"name": "60kg", "min": 57, "max": 60},
+        {"name": "63.5kg", "min": 60, "max": 63.5},
+        {"name": "67kg", "min": 63.5, "max": 67},
+        {"name": "71kg", "min": 67, "max": 71},
+        {"name": "75kg", "min": 71, "max": 75},
+        {"name": "75+kg", "min": 75, "max": 999},  # Open weight
+        {"name": "81kg", "min": 75, "max": 81},  # Women only
+        {"name": "86kg", "min": 81, "max": 86},  # Women only
+        {"name": "91kg", "min": 86, "max": 91},  # Women only
+        {"name": "91+kg", "min": 91, "max": 999},  # Women open
+    ],
+    # Juniors 18-23 years (same for both genders per VRVS)
+    "junior_18_23": [
+        {"name": "42kg", "min": 40, "max": 42},
+        {"name": "45kg", "min": 42, "max": 45},
+        {"name": "48kg", "min": 45, "max": 48},
+        {"name": "51kg", "min": 48, "max": 51},
+        {"name": "54kg", "min": 51, "max": 54},
+        {"name": "57kg", "min": 54, "max": 57},
+        {"name": "60kg", "min": 57, "max": 60},
+        {"name": "63.5kg", "min": 60, "max": 63.5},
+        {"name": "67kg", "min": 63.5, "max": 67},
+        {"name": "71kg", "min": 67, "max": 71},
+        {"name": "75kg", "min": 71, "max": 75},
+        {"name": "75+kg", "min": 75, "max": 999},  # Open weight
+        {"name": "81kg", "min": 75, "max": 81},
+        {"name": "86kg", "min": 81, "max": 86},
+        {"name": "91kg", "min": 86, "max": 91},
+        {"name": "91+kg", "min": 91, "max": 999},
+    ],
+    # Juniors 16-17 years (same for both genders per VRVS)
+    "junior_16_17": [
+        {"name": "42kg", "min": 40, "max": 42},
+        {"name": "45kg", "min": 42, "max": 45},
+        {"name": "48kg", "min": 45, "max": 48},
+        {"name": "51kg", "min": 48, "max": 51},
+        {"name": "54kg", "min": 51, "max": 54},
+        {"name": "57kg", "min": 54, "max": 57},
+        {"name": "60kg", "min": 57, "max": 60},
+        {"name": "63.5kg", "min": 60, "max": 63.5},
+        {"name": "67kg", "min": 63.5, "max": 67},
+        {"name": "71kg", "min": 67, "max": 71},
+        {"name": "75kg", "min": 71, "max": 75},
+        {"name": "75+kg", "min": 75, "max": 999},  # Open weight
+        {"name": "81kg", "min": 75, "max": 81},
+        {"name": "86kg", "min": 81, "max": 86},
+        {"name": "91kg", "min": 86, "max": 91},
+        {"name": "91+kg", "min": 91, "max": 999},
+    ],
+    # Youth 14-15 years
+    "youth_14_15": [
+        {"name": "32kg", "min": 30, "max": 32},
+        {"name": "34kg", "min": 32, "max": 34},
+        {"name": "36kg", "min": 34, "max": 36},
+        {"name": "38kg", "min": 36, "max": 38},
+        {"name": "40kg", "min": 38, "max": 40},
+        {"name": "42kg", "min": 40, "max": 42},
+        {"name": "44kg", "min": 42, "max": 44},
+        {"name": "45kg", "min": 42, "max": 45},
+        {"name": "46kg", "min": 44, "max": 46},
+        {"name": "48kg", "min": 45, "max": 48},
+        {"name": "50kg", "min": 48, "max": 50},
+        {"name": "51kg", "min": 48, "max": 51},
+        {"name": "52kg", "min": 50, "max": 52},
+        {"name": "54kg", "min": 51, "max": 54},
+        {"name": "56kg", "min": 54, "max": 56},
+        {"name": "57kg", "min": 54, "max": 57},
+        {"name": "58kg", "min": 56, "max": 58},
+        {"name": "60kg", "min": 57, "max": 60},
+        {"name": "63.5kg", "min": 58, "max": 63.5},
+        {"name": "63.5+kg", "min": 63.5, "max": 999},  # Open weight
+        {"name": "67kg", "min": 63.5, "max": 67},
+        {"name": "71kg", "min": 67, "max": 71},
+        {"name": "71+kg", "min": 71, "max": 999},
+        {"name": "75kg", "min": 71, "max": 75},
+        {"name": "81kg", "min": 75, "max": 81},
+        {"name": "81+kg", "min": 81, "max": 999},
+    ],
+    # Youth 12-13 years
+    "youth_12_13": [
+        {"name": "32kg", "min": 30, "max": 32},
+        {"name": "34kg", "min": 32, "max": 34},
+        {"name": "36kg", "min": 34, "max": 36},
+        {"name": "38kg", "min": 36, "max": 38},
+        {"name": "40kg", "min": 38, "max": 40},
+        {"name": "42kg", "min": 40, "max": 42},
+        {"name": "44kg", "min": 42, "max": 44},
+        {"name": "46kg", "min": 44, "max": 46},
+        {"name": "48kg", "min": 46, "max": 48},
+        {"name": "50kg", "min": 48, "max": 50},
+        {"name": "52kg", "min": 50, "max": 52},
+        {"name": "54kg", "min": 52, "max": 54},
+        {"name": "56kg", "min": 54, "max": 56},
+        {"name": "58kg", "min": 56, "max": 58},
+        {"name": "60kg", "min": 58, "max": 60},
+        {"name": "63.5kg", "min": 60, "max": 63.5},
+        {"name": "63.5+kg", "min": 63.5, "max": 999},  # Open weight
+        {"name": "67kg", "min": 63.5, "max": 67},
+        {"name": "71kg", "min": 67, "max": 71},
+        {"name": "71+kg", "min": 71, "max": 999},
+    ],
+    # Backward compatibility - keep IFMA categories
+    "ifma_adult": [
         {"name": "Light Fly", "min": 0, "max": 51.5},
         {"name": "Fly", "min": 51.5, "max": 54},
         {"name": "Bantam", "min": 54, "max": 57},
@@ -30,31 +153,85 @@ WEIGHT_CATEGORIES = {
         {"name": "Light Heavy", "min": 86, "max": 91},
         {"name": "Cruiser", "min": 91, "max": 100},
         {"name": "Heavy", "min": 100, "max": 999},
-    ]
+    ],
 }
 
-WEIGHT_CLASSES_ADULT = WEIGHT_CATEGORIES["adult"]
+# WEIGHT_CLASSES_ADULT is now dynamic - use get_weight_categories_for_demographic()
+# Keeping for backward compatibility but will be deprecated
+WEIGHT_CLASSES_ADULT = WEIGHT_CATEGORIES["ifma_adult"]
 
 
-def find_weight_category_by_max(max_weight: float) -> Optional[Dict[str, Any]]:
-    """Find weight category by its maximum weight limit.
-
-    Used to correctly parse "до X" (up to X kg) expressions by identifying
-    the IFMA weight category that has X as its upper limit.
+def get_weight_categories_for_demographic(
+    age: int, gender: str
+) -> List[Dict[str, Any]]:
+    """Get appropriate VRVS weight categories based on age and gender.
 
     Args:
-        max_weight: The upper weight limit (e.g., 54 for Fly category)
+        age: Fighter's age in years
+        gender: Fighter's gender ("м" for male, "ж" for female)
+
+    Returns:
+        List of weight category dictionaries for the demographic
+    """
+    # Normalize gender
+    gender_norm = gender.lower().strip()
+    if gender_norm in ["м", "male", "man"]:
+        gender_key = "male"
+    elif gender_norm in ["ж", "female", "woman"]:
+        gender_key = "female"
+    else:
+        gender_key = "male"  # Default fallback
+
+    # Determine category group based on age
+    if age >= 18 and age <= 23:
+        # Juniors 18-23
+        category_key = f"junior_18_23"
+    elif age >= 16 and age <= 17:
+        # Juniors 16-17
+        category_key = f"junior_16_17"
+    elif age >= 14 and age <= 15:
+        # Youth 14-15
+        category_key = f"youth_14_15"
+    elif age >= 12 and age <= 13:
+        # Youth 12-13
+        category_key = f"youth_12_13"
+    elif age >= 17 and age <= 40:
+        # Adults 17-40
+        category_key = f"adult_{gender_key}"
+    else:
+        # Outside supported age range - use IFMA fallback
+        return WEIGHT_CATEGORIES["ifma_adult"]
+
+    return WEIGHT_CATEGORIES.get(category_key, WEIGHT_CATEGORIES["ifma_adult"])
+
+
+def find_weight_category_by_max(
+    max_weight: float, age: int = None, gender: str = None
+) -> Optional[Dict[str, Any]]:
+    """Find VRVS weight category by its maximum weight limit.
+
+    Used to correctly parse "до X" (up to X kg) expressions by identifying
+    the VRVS weight category that has X as its upper limit for the given demographic.
+
+    Args:
+        max_weight: The upper weight limit (e.g., 54 for 54kg category)
+        age: Fighter's age (optional, uses adult categories if not provided)
+        gender: Fighter's gender (optional, uses male categories if not provided)
 
     Returns:
         Category dict {'name': str, 'min': float, 'max': float} or None if not found
 
     Examples:
-        >>> find_weight_category_by_max(54)
-        {'name': 'Fly', 'min': 51.5, 'max': 54}
-        >>> find_weight_category_by_max(55)  # No exact match
-        None
+        >>> find_weight_category_by_max(54, 20, "м")  # Adult male
+        {'name': '54kg', 'min': 51, 'max': 54}
+        >>> find_weight_category_by_max(32, 14, "м")  # Youth male
+        {'name': '32kg', 'min': 30, 'max': 32}
     """
-    for category in WEIGHT_CLASSES_ADULT:
+    # Get appropriate categories for demographic
+    categories = get_weight_categories_for_demographic(age or 20, gender or "м")
+
+    # Search for exact max weight match
+    for category in categories:
         # Use small epsilon for floating point comparison
         if abs(category["max"] - max_weight) < 0.01:
             return category
@@ -172,6 +349,40 @@ class Fighter:
     club_region: Optional[str] = None
     club_name: Optional[str] = None
     club_subgroup: Optional[str] = None
+
+
+def can_match_by_weight_difference(fighter1: Fighter, fighter2: Fighter) -> bool:
+    """Check if fighters can match using VRVS 2kg difference rule.
+
+    Per VRVS rules, fighters in categories below the defined weight limits
+    can be matched if their weight difference is no more than 2kg.
+
+    Args:
+        fighter1: First fighter
+        fighter2: Second fighter
+
+    Returns:
+        True if fighters can match by 2kg difference rule
+    """
+    # Must be same gender and age group for this rule
+    if fighter1.gender != fighter2.gender:
+        return False
+
+    if get_age_division(fighter1.age) != get_age_division(fighter2.age):
+        return False
+
+    # Get categories for this demographic
+    categories = get_weight_categories_for_demographic(fighter1.age, fighter1.gender)
+
+    if not categories:
+        return False
+
+    # Check if both fighters are below the lowest defined category
+    lowest_category_min = categories[0]["min"]
+    min_weight = min(fighter1.weight_min, fighter2.weight_min)
+
+    # If both fighters are below the lowest defined category, allow 2kg difference
+    return min_weight < lowest_category_min
 
 
 def parse_club_hierarchy(club_str: str) -> dict:
@@ -393,20 +604,28 @@ def get_age_group(age: int) -> str:
         return "adult"
 
 
-def parse_weight_range(weight_str: str) -> Tuple[float, float]:
-    """Parse weight range string like '6-7' or 'до 22'."""
+def parse_weight_range(
+    weight_str: str, age: int = None, gender: str = None
+) -> Tuple[float, float]:
+    """Parse weight range string like '6-7' or 'до 22' with VRVS awareness.
+
+    Args:
+        weight_str: Weight specification string
+        age: Fighter's age for demographic-aware parsing (optional)
+        gender: Fighter's gender for demographic-aware parsing (optional)
+    """
     if pd.isna(weight_str) or weight_str == "":
         return (0, 999)  # Default wide range
 
     weight_str = str(weight_str).lower().strip()
 
-    # Russian "до" (under/up to) - NOW IDENTIFIES WEIGHT CATEGORY
+    # Russian "до" (under/up to) - NOW IDENTIFIES VRVS WEIGHT CATEGORY
     if "до" in weight_str:
         try:
             max_weight = float(re.search(r"до\s*(\d+(?:\.\d+)?)", weight_str).group(1))
 
-            # Try to find matching IFMA weight category first
-            category = find_weight_category_by_max(max_weight)
+            # Try to find matching VRVS weight category for demographic
+            category = find_weight_category_by_max(max_weight, age, gender)
             if category:
                 return (category["min"], category["max"])
 
@@ -483,8 +702,10 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
     """Convert DataFrame to list of Fighter objects."""
     fighters = []
     for idx, row in df.iterrows():
+        age = int(row.get("Age", 20))
+        gender = normalize_gender(row.get("Gender", "м"))
         weight_str = row.get("Weight", "")
-        weight_min, weight_max = parse_weight_range(weight_str)
+        weight_min, weight_max = parse_weight_range(weight_str, age, gender)
         weight_class = get_weight_category((weight_min + weight_max) / 2)
 
         # Record column contains total fights - ensure robust type conversion
@@ -589,45 +810,72 @@ def is_valid_pair(f1: Fighter, f2: Fighter) -> ValidationResult:
                 suggested_fix=f"Find a {f1.name} opponent within {max_allowed}kg weight difference",
             )
 
-    # Adults (18+) - OR youth with undefined categories
+    # VRVS Weight Validation (Adults 17+ and Juniors 16-23)
     else:
-        # Check if either fighter has an undefined weight category (likely youth)
-        cat1 = get_weight_category(f1.weight_min)
-        cat2 = get_weight_category(f2.weight_min)
+        # Get VRVS categories for each fighter's demographic
+        categories1 = get_weight_categories_for_demographic(f1.age, f1.gender)
+        categories2 = get_weight_categories_for_demographic(f2.age, f2.gender)
 
-        # If both have valid categories, require exact match (adult rules)
+        # Find which category each fighter belongs to
+        cat1 = None
+        cat2 = None
+
+        for category in categories1:
+            if category["min"] <= f1.weight_min < category["max"]:
+                cat1 = category
+                break
+
+        for category in categories2:
+            if category["min"] <= f2.weight_min < category["max"]:
+                cat2 = category
+                break
+
+        # VRVS Adult/Junior Rules: Same category required
         if cat1 and cat2:
-            if cat1 == cat2:
+            if cat1["name"] == cat2["name"]:
                 return ValidationResult(
                     is_valid=True,
-                    message=f"✅ Adult match in {cat1} category",
+                    message=f"✅ VRVS match in {cat1['name']} category ({f1_age_div})",
                     severity="info",
                 )
             else:
                 return ValidationResult(
                     is_valid=False,
-                    message=f"Different weight categories: {f1.name} ({cat1}) vs {f2.name} ({cat2})",
+                    message=f"Different VRVS categories: {f1.name} ({cat1['name']}) vs {f2.name} ({cat2['name']})",
                     severity="error",
-                    suggested_fix=f"Pair {f1.name} with another fighter in {cat1} category",
+                    suggested_fix=f"Pair {f1.name} with another fighter in {cat1['name']} category",
                 )
 
-        # If either has undefined category (youth or light weights), use floating rules
+        # VRVS 2kg Difference Rule: For fighters below defined categories
+        elif can_match_by_weight_difference(f1, f2):
+            if weight_diff <= 2.0:
+                return ValidationResult(
+                    is_valid=True,
+                    message=f"✅ VRVS 2kg difference match: weight diff {weight_diff:.1f}kg ≤ 2.0kg",
+                    severity="info",
+                )
+            else:
+                return ValidationResult(
+                    is_valid=False,
+                    message=f"Weight difference {weight_diff:.1f}kg exceeds VRVS 2kg limit",
+                    severity="error",
+                    suggested_fix=f"Find a {f1.name} opponent within 2kg weight difference",
+                )
+
+        # Fallback: Use youth floating rules for edge cases
         else:
-            # Use youth floating weight rules for undefined categories
-            max_allowed = get_max_diff_12_15(
-                avg_weight
-            )  # Use 12-15 rules as default for youth
+            max_allowed = get_max_diff_12_15(avg_weight)
             if weight_diff <= max_allowed:
                 return ValidationResult(
                     is_valid=True,
-                    message=f"✅ Youth match (undefined category): weight diff {weight_diff:.1f}kg ≤ {max_allowed}kg",
+                    message=f"✅ Fallback match: weight diff {weight_diff:.1f}kg ≤ {max_allowed}kg",
                     severity="info",
-                    suggested_fix="Consider verifying weight categories for future tournaments",
+                    suggested_fix="Consider verifying weight categories for VRVS compliance",
                 )
             else:
                 return ValidationResult(
                     is_valid=False,
-                    message=f"Youth weight difference {weight_diff:.1f}kg exceeds limit {max_allowed}kg",
+                    message=f"Weight difference {weight_diff:.1f}kg exceeds fallback limit {max_allowed}kg",
                     severity="error",
                     suggested_fix=f"Find a {f1.name} opponent within {max_allowed}kg weight difference",
                 )
