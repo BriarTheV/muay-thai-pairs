@@ -42,6 +42,148 @@ def t(key, default=None):
     return translations[lang].get(key, default)
 
 
+def display_club_parsing_report(df: pd.DataFrame):
+    """Show how clubs were parsed after upload with validation feedback."""
+    from utils.pairing import parse_club_hierarchy
+
+    if "Club" not in df.columns:
+        return
+
+    # Parse all unique clubs
+    unique_clubs = df["Club"].dropna().unique()
+    parsed_clubs = []
+
+    for club in unique_clubs:
+        parsed = parse_club_hierarchy(str(club))
+        parsed_clubs.append(
+            {
+                "original": club,
+                "region": parsed.get("region", "N/A"),
+                "club": parsed.get("club", "N/A"),
+                "subgroup": parsed.get("subgroup", "N/A"),
+                "confidence": "high"
+                if parsed.get("region") and parsed.get("club")
+                else "medium"
+                if parsed.get("club")
+                else "low",
+            }
+        )
+
+    # Display summary
+    st.subheader("🏛️ Club Parsing Report")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Unique Clubs", len(unique_clubs))
+    with col2:
+        high_conf = sum(1 for p in parsed_clubs if p["confidence"] == "high")
+        st.metric("Well Parsed", f"{high_conf}/{len(unique_clubs)}")
+    with col3:
+        low_conf = sum(1 for p in parsed_clubs if p["confidence"] == "low")
+        st.metric("Need Review", low_conf)
+
+    # Show detailed parsing results
+    with st.expander("📋 Detailed Club Parsing Results", expanded=False):
+        if parsed_clubs:
+            # Create summary dataframe
+            summary_df = pd.DataFrame(parsed_clubs)
+            summary_df = summary_df.sort_values("confidence", ascending=False)
+
+            # Add status indicators
+            def get_status_indicator(confidence):
+                if confidence == "high":
+                    return "✅"
+                elif confidence == "medium":
+                    return "⚠️"
+                else:
+                    return "❌"
+
+            summary_df["Status"] = summary_df["confidence"].apply(get_status_indicator)
+
+            st.dataframe(
+                summary_df[
+                    ["Status", "original", "region", "club", "subgroup", "confidence"]
+                ],
+                column_config={
+                    "Status": st.column_config.TextColumn("Status", width="small"),
+                    "original": st.column_config.TextColumn(
+                        "Original Club", width="large"
+                    ),
+                    "region": st.column_config.TextColumn("Region", width="medium"),
+                    "club": st.column_config.TextColumn("Club Name", width="medium"),
+                    "subgroup": st.column_config.TextColumn("Subgroup", width="small"),
+                    "confidence": st.column_config.TextColumn(
+                        "Confidence", width="small"
+                    ),
+                },
+                use_container_width=True,
+            )
+
+            # Show parsing patterns explanation
+            st.markdown("""
+            **Parsing Confidence Levels:**
+            - ✅ **High**: Region and club clearly identified
+            - ⚠️ **Medium**: Club identified, region unclear
+            - ❌ **Low**: Parsing failed, manual review needed
+
+            **Supported Formats:**
+            - `Region / Club (Subgroup)` (e.g., "Тутаев / Пламя (ФК)")
+            - `Region / Club` (e.g., "Тутаев / Пламя")
+            - `Club (Subgroup)` (e.g., "Пламя (ФК)")
+            - `Region - Club` (e.g., "Тутаев - Пламя")
+            """)
+
+        else:
+            st.info("No club data to analyze.")
+
+    # Show potential conflict warnings
+    conflict_warnings = []
+    for parsed in parsed_clubs:
+        if parsed["confidence"] == "low":
+            conflict_warnings.append(
+                f"Club '{parsed['original']}' could not be parsed reliably"
+            )
+
+    if conflict_warnings:
+        st.warning("⚠️ **Potential Issues Detected:**")
+        for warning in conflict_warnings[:5]:  # Show first 5
+            st.write(f"• {warning}")
+        if len(conflict_warnings) > 5:
+            st.write(f"• ... and {len(conflict_warnings) - 5} more")
+
+
+def validate_club_parsing(df: pd.DataFrame) -> dict:
+    """Validate club parsing results and return analysis."""
+    from utils.pairing import parse_club_hierarchy
+
+    if "Club" not in df.columns:
+        return {"valid": True, "parsed_clubs": []}
+
+    unique_clubs = df["Club"].dropna().unique()
+    parsed_clubs = []
+
+    for club in unique_clubs:
+        parsed = parse_club_hierarchy(str(club))
+        confidence = (
+            "high"
+            if parsed.get("region") and parsed.get("club")
+            else "medium"
+            if parsed.get("club")
+            else "low"
+        )
+        parsed_clubs.append(
+            {"original": club, "parsed": parsed, "confidence": confidence}
+        )
+
+    low_confidence_count = sum(1 for p in parsed_clubs if p["confidence"] == "low")
+
+    return {
+        "valid": low_confidence_count == 0,
+        "parsed_clubs": parsed_clubs,
+        "low_confidence_count": low_confidence_count,
+    }
+
+
 def render_data_import_tab():
     st.header(t("header_data"))
 
@@ -249,6 +391,9 @@ def render_data_import_tab():
                     "{}: {}".format(t("genders"), df["Gender"].value_counts().to_dict())
                 )
                 st.write("{}: {} unique clubs".format(t("clubs"), df["Club"].nunique()))
+
+                # Club parsing validation
+                display_club_parsing_report(df)
 
     elif ingestion_mode == t("google_sheets"):
         st.subheader(t("gsheets_import"))

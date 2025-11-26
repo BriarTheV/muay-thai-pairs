@@ -125,8 +125,10 @@ def test_weight_class_priority():
         2, "C", "M", 20, 75.0, 75.0, "C3", "T3", 0, 2, "Light Heavyweight"
     )  # Different class, different weight
 
-    assert is_valid_pair(f1, f2)[0]  # Should be valid due to same category
-    assert not is_valid_pair(f1, f3)[0]  # Different categories - should be invalid
+    assert is_valid_pair(f1, f2).is_valid  # Should be valid due to same category
+    assert not is_valid_pair(
+        f1, f3
+    ).is_valid  # Different categories - should be invalid
 
 
 def test_is_valid_pair():
@@ -140,6 +142,6 @@ def test_is_valid_pair():
         3, "D", "M", 20, 70.0, 70.0, "C1", "T1", 0, 1, "Light Middleweight"
     )  # Same club
 
-    assert is_valid_pair(f1, f2)[0]  # Valid
-    assert not is_valid_pair(f1, f3)[0]  # Different gender
-    assert not is_valid_pair(f1, f4)[0]  # Same club
+    assert is_valid_pair(f1, f2).is_valid  # Valid
+    assert not is_valid_pair(f1, f3).is_valid  # Different gender
+    assert not is_valid_pair(f1, f4).is_valid  # Same club

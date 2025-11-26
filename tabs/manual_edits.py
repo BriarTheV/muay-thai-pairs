@@ -1,38 +1,7 @@
 import streamlit as st
 import pandas as pd
-from streamlit_elements import elements, dashboard, mui, html
 from utils.translations import translations
-from utils.pairing import is_valid_pair, Fighter
-
-
-def safe_int_conversion(value) -> int:
-    """Safely convert various data types to integer, handling strings, bytes, floats, etc."""
-    if pd.isna(value) or value == "" or value is None:
-        return 0
-
-    try:
-        # Handle bytes objects (decode if needed)
-        if isinstance(value, bytes):
-            value = value.decode("utf-8", errors="ignore")
-
-        # Convert to string first to handle all cases
-        str_val = str(value).strip()
-
-        # Remove any non-numeric characters except decimal point
-        import re
-
-        numeric_str = re.sub(r"[^\d.]", "", str_val)
-
-        # If empty after cleaning, return 0
-        if not numeric_str:
-            return 0
-
-        # Convert to float first, then int (handles "5.0" -> 5)
-        return int(float(numeric_str))
-
-    except (ValueError, TypeError, AttributeError):
-        # If conversion fails, return 0
-        return 0
+from utils.type_helpers import safe_int_conversion
 
 
 def format_weight_string(fighter):
@@ -45,30 +14,6 @@ def format_weight_string(fighter):
     else:
         return f"{weight_min}-{weight_max}"
 
-    try:
-        # Handle bytes objects (decode if needed)
-        if isinstance(value, bytes):
-            value = value.decode("utf-8", errors="ignore")
-
-        # Convert to string first to handle all cases
-        str_val = str(value).strip()
-
-        # Remove any non-numeric characters except decimal point
-        import re
-
-        numeric_str = re.sub(r"[^\d.]", "", str_val)
-
-        # If empty after cleaning, return 0
-        if not numeric_str:
-            return 0
-
-        # Convert to float first, then int (handles "5.0" -> 5)
-        return int(float(numeric_str))
-
-    except (ValueError, TypeError, AttributeError):
-        # If conversion fails, return 0
-        return 0
-
 
 def t(key, default=None):
     """Translation function with optional fallback"""
@@ -79,57 +24,51 @@ def t(key, default=None):
 
 
 def build_master_fighter_registry():
-    """Build and maintain master registry of complete fighter data."""
+    """Build master registry of complete fighter data (optimized O(n) implementation)."""
     registry = {}
 
-    # Add fighters from matches
+    # Add fighters from matches (O(m) where m = number of matches)
     matches_df = st.session_state.get("matches", pd.DataFrame())
     for idx, match in matches_df.iterrows():
-        # Fighter 1
-        fighter1_name = match.get("Fighter_1", "")
+        match_id = idx + 1  # 1-based
+
+        # Fighter 1 (Red Corner)
+        fighter1_name = match.get("Red_Corner", "")
         if fighter1_name:
             registry[fighter1_name] = {
                 "name": fighter1_name,
                 "gender": match.get("Gender", ""),
-                "age": match.get("Age_1", 0),
-                "weight_min": match.get("Weight_1", 0),
-                "weight_max": match.get("Weight_1", 0),  # Assume exact weight
-                "club": match.get("Club_1", ""),
+                "age": match.get("Red_Age", 0),
+                "weight_min": match.get("Red_Weight", 0),
+                "weight_max": match.get("Red_Weight", 0),  # Assume exact weight
+                "club": match.get("Red_Club", ""),
                 "trainer": "",  # Not stored in matches
-                "record": match.get("Red_Record", 0)
-                if fighter1_name == match.get("Fighter_1")
-                else match.get("Blue_Record", 0),
-                "total_fights": match.get("Red_Total_Fights", 0)
-                if fighter1_name == match.get("Fighter_1")
-                else match.get("Blue_Total_Fights", 0),
+                "record": match.get("Red_Record", 0),
+                "total_fights": match.get("Red_Total_Fights", 0),
                 "weight_class": match.get("Weight_Class", ""),
-                "current_match_id": idx + 1,  # 1-based
+                "current_match_id": match_id,
                 "status": "matched",
             }
 
-        # Fighter 2
-        fighter2_name = match.get("Fighter_2", "")
+        # Fighter 2 (Blue Corner)
+        fighter2_name = match.get("Blue_Corner", "")
         if fighter2_name:
             registry[fighter2_name] = {
                 "name": fighter2_name,
                 "gender": match.get("Gender", ""),
-                "age": match.get("Age_2", 0),
-                "weight_min": match.get("Weight_2", 0),
-                "weight_max": match.get("Weight_2", 0),  # Assume exact weight
-                "club": match.get("Club_2", ""),
+                "age": match.get("Blue_Age", 0),
+                "weight_min": match.get("Blue_Weight", 0),
+                "weight_max": match.get("Blue_Weight", 0),  # Assume exact weight
+                "club": match.get("Blue_Club", ""),
                 "trainer": "",  # Not stored in matches
-                "record": match.get("Blue_Record", 0)
-                if fighter2_name == match.get("Fighter_2")
-                else match.get("Red_Record", 0),
-                "total_fights": match.get("Blue_Total_Fights", 0)
-                if fighter2_name == match.get("Fighter_2")
-                else match.get("Red_Total_Fights", 0),
+                "record": match.get("Blue_Record", 0),
+                "total_fights": match.get("Blue_Total_Fights", 0),
                 "weight_class": match.get("Weight_Class", ""),
-                "current_match_id": idx + 1,  # 1-based
+                "current_match_id": match_id,
                 "status": "matched",
             }
 
-    # Add fighters from unmatched
+    # Add fighters from unmatched (O(u) where u = number of unmatched)
     unmatched_df = st.session_state.get("unmatched", pd.DataFrame())
     for _, fighter in unmatched_df.iterrows():
         name = fighter.get("Name", "")
@@ -167,6 +106,82 @@ def build_master_fighter_registry():
             }
 
     st.session_state["master_fighter_registry"] = registry
+
+
+def update_fighter_in_registry(fighter_name: str, updates: dict):
+    """Incremental update to registry instead of full rebuild (O(1) operation)."""
+    registry = st.session_state.get("master_fighter_registry", {})
+
+    if fighter_name not in registry:
+        # Fighter not in registry, add them
+        registry[fighter_name] = {
+            "name": fighter_name,
+            "gender": "",
+            "age": 0,
+            "weight_min": 0,
+            "weight_max": 0,
+            "club": "",
+            "trainer": "",
+            "record": 0,
+            "total_fights": 0,
+            "weight_class": "",
+            "current_match_id": 0,
+            "status": "unknown",
+        }
+
+    # Apply updates
+    registry[fighter_name].update(updates)
+    st.session_state["master_fighter_registry"] = registry
+
+
+def validate_fighter_registry() -> list[str]:
+    """Check registry for data consistency issues (O(n) validation)."""
+    registry = st.session_state.get("master_fighter_registry", {})
+    issues = []
+
+    # Check for missing fighters
+    matches_df = st.session_state.get("matches", pd.DataFrame())
+    unmatched_df = st.session_state.get("unmatched", pd.DataFrame())
+
+    # Collect all expected fighter names
+    expected_fighters = set()
+
+    # From matches
+    for _, match in matches_df.iterrows():
+        expected_fighters.add(match.get("Red_Corner", ""))
+        expected_fighters.add(match.get("Blue_Corner", ""))
+
+    # From unmatched
+    for _, fighter in unmatched_df.iterrows():
+        expected_fighters.add(fighter.get("Name", ""))
+
+    expected_fighters.discard("")  # Remove empty names
+
+    # Check for missing fighters in registry
+    registry_fighters = set(registry.keys())
+    missing_fighters = expected_fighters - registry_fighters
+    if missing_fighters:
+        issues.append(f"Missing fighters in registry: {sorted(missing_fighters)}")
+
+    # Check for duplicate match IDs
+    match_id_counts = {}
+    for fighter_data in registry.values():
+        match_id = fighter_data.get("current_match_id", 0)
+        if match_id > 0:
+            match_id_counts[match_id] = match_id_counts.get(match_id, 0) + 1
+
+    duplicate_match_ids = [mid for mid, count in match_id_counts.items() if count != 2]
+    if duplicate_match_ids:
+        issues.append(
+            f"Invalid match IDs (must have exactly 2 fighters): {duplicate_match_ids}"
+        )
+
+    # Check for orphaned records (fighters in registry but not in data)
+    orphaned_fighters = registry_fighters - expected_fighters
+    if orphaned_fighters:
+        issues.append(f"Orphaned fighters in registry: {sorted(orphaned_fighters)}")
+
+    return issues
 
 
 def render_manual_edits_tab():
@@ -323,141 +338,187 @@ def validate_match_id_groups(edited_df):
     return invalid_groups
 
 
-def update_session_state_from_match_id(edited_df):
-    """Update session state based on Match_ID changes using master registry."""
-    # First, validate group sizes
-    invalid_groups = validate_match_id_groups(edited_df)
-    if invalid_groups:
-        st.error(
-            f"❌ Invalid groupings detected! Match IDs {invalid_groups} must have exactly 2 fighters each. Please fix the groupings before saving."
-        )
-        return False  # Don't update session state
+def validate_before_save(edited_df) -> tuple[bool, list[str]]:
+    """Comprehensive pre-save validation with detailed error messages."""
+    errors = []
 
-    # Use master registry for safe reconstruction
+    # Check same-club violations
     registry = st.session_state.get("master_fighter_registry", {})
 
-    # Group fighters by Match_ID from the edited dataframe
+    # Group by Match_ID to check pairings
     match_groups = {}
-    unmatched_fighters = []
-
     for _, fighter in edited_df.iterrows():
         match_id = int(fighter.get("Match_ID", 0))
         name = fighter.get("Name", "")
 
-        if match_id == 0:
-            # Unmatched fighter - use original data from registry
+        if match_id > 0:
+            if match_id not in match_groups:
+                match_groups[match_id] = []
             if name in registry:
-                unmatched_fighters.append(registry[name])
-        else:
-            # Matched fighter - use original data from registry
-            if name in registry:
-                if match_id not in match_groups:
-                    match_groups[match_id] = []
                 match_groups[match_id].append(registry[name])
 
-    # Rebuild matches dataframe from original data
-    new_matches = []
+    # Validate each match group
     for match_id, fighters in match_groups.items():
-        if len(fighters) == 2:  # Should be validated, but double-check
-            f1, f2 = fighters[0], fighters[1]
+        if len(fighters) != 2:
+            errors.append(
+                f"Match ID {match_id}: Must have exactly 2 fighters (found {len(fighters)})"
+            )
+            continue
 
-            match_record = {
-                "Match_ID": match_id,
-                "Red_Corner": f1["name"],
-                "Blue_Corner": f2["name"],
-                "Gender": f1["gender"],
-                "Red_Age": f1["age"],
-                "Blue_Age": f2["age"],
-                "Red_Weight": format_weight_string(f1),
-                "Blue_Weight": format_weight_string(f2),
-                "Red_Club": f1["club"],
-                "Blue_Club": f2["club"],
-                "Weight_Diff": abs(f1["weight_min"] - f2["weight_min"]),
-                "Age_Diff": abs(f1["age"] - f2["age"]),
-                "Red_Record": f1["record"],
-                "Red_Total_Fights": f1["total_fights"],
-                "Blue_Record": f2["record"],
-                "Blue_Total_Fights": f2["total_fights"],
+        f1, f2 = fighters
+
+        # Gender check
+        if f1["gender"] != f2["gender"]:
+            errors.append(
+                f"Match ID {match_id}: Gender mismatch between {f1['name']} ({f1['gender']}) and {f2['name']} ({f2['gender']})"
+            )
+
+        # Age division check
+        from utils.pairing import get_age_division
+
+        if get_age_division(f1["age"]) != get_age_division(f2["age"]):
+            errors.append(
+                f"Match ID {match_id}: Age division mismatch - {f1['name']} ({get_age_division(f1['age'])}) vs {f2['name']} ({get_age_division(f2['age'])})"
+            )
+
+        # Weight compatibility check (basic validation)
+        weight_diff = abs(f1["weight_min"] - f2["weight_min"])
+        age_group = get_age_division(f1["age"])
+
+        if age_group in ["12-13", "14-15"]:
+            max_allowed = 5.0  # kg for youth
+        elif age_group in ["16-17"]:
+            max_allowed = 6.0  # kg for older youth
+        else:
+            max_allowed = 3.0  # kg for adults
+
+        if weight_diff > max_allowed:
+            errors.append(
+                f"Match ID {match_id}: Weight difference {weight_diff}kg exceeds limit {max_allowed}kg for {age_group} age group"
+            )
+
+        # Club conflict check (level 1 - exact match)
+        if f1["club"] and f2["club"] and f1["club"] == f2["club"]:
+            errors.append(
+                f"Match ID {match_id}: Same club conflict - {f1['name']} and {f2['name']} are both from '{f1['club']}'"
+            )
+
+    return (len(errors) == 0, errors)
+
+
+def update_session_state_from_match_id(edited_df):
+    """Transaction-like behavior with rollback on validation failures."""
+    # Comprehensive pre-save validation
+    is_valid, errors = validate_before_save(edited_df)
+    if not is_valid:
+        st.error("❌ Cannot save changes due to validation errors:")
+        for error in errors:
+            st.error(f"  • {error}")
+        st.info("💡 **Please fix these issues before saving.**")
+        return False
+
+    # Create backup of current state for rollback
+    backup_matches = st.session_state.get("matches", pd.DataFrame()).copy()
+    backup_unmatched = st.session_state.get("unmatched", pd.DataFrame()).copy()
+    backup_registry = st.session_state.get("master_fighter_registry", {}).copy()
+
+    try:
+        # Use master registry for safe reconstruction
+        registry = st.session_state.get("master_fighter_registry", {})
+
+        # Group fighters by Match_ID from the edited dataframe
+        match_groups = {}
+        unmatched_fighters = []
+
+        for _, fighter in edited_df.iterrows():
+            match_id = int(fighter.get("Match_ID", 0))
+            name = fighter.get("Name", "")
+
+            if match_id == 0:
+                # Unmatched fighter - use original data from registry
+                if name in registry:
+                    unmatched_fighters.append(registry[name])
+            else:
+                # Matched fighter - use original data from registry
+                if name in registry:
+                    if match_id not in match_groups:
+                        match_groups[match_id] = []
+                    match_groups[match_id].append(registry[name])
+
+        # Rebuild matches dataframe from original data
+        new_matches = []
+        for match_id, fighters in match_groups.items():
+            if len(fighters) == 2:  # Should be validated, but double-check
+                f1, f2 = fighters[0], fighters[1]
+
+                match_record = {
+                    "Match_ID": match_id,
+                    "Red_Corner": f1["name"],
+                    "Blue_Corner": f2["name"],
+                    "Gender": f1["gender"],
+                    "Red_Age": f1["age"],
+                    "Blue_Age": f2["age"],
+                    "Red_Weight": format_weight_string(f1),
+                    "Blue_Weight": format_weight_string(f2),
+                    "Red_Club": f1["club"],
+                    "Blue_Club": f2["club"],
+                    "Weight_Diff": abs(f1["weight_min"] - f2["weight_min"]),
+                    "Age_Diff": abs(f1["age"] - f2["age"]),
+                    "Red_Record": f1["record"],
+                    "Red_Total_Fights": f1["total_fights"],
+                    "Blue_Record": f2["record"],
+                    "Blue_Total_Fights": f2["total_fights"],
+                }
+                new_matches.append(match_record)
+
+        # Rebuild unmatched dataframe from original data
+        new_unmatched = []
+        for fighter in unmatched_fighters:
+            unmatched_record = {
+                "Name": fighter["name"],
+                "Gender": fighter["gender"],
+                "Age": fighter["age"],
+                "Weight": f"{fighter['weight_min']}-{fighter['weight_max']}"
+                if fighter["weight_min"] != fighter["weight_max"]
+                else f">={fighter['weight_max']}",
+                "Club": fighter["club"],
+                "Trainer": fighter["trainer"],
+                "Record": fighter["record"],
             }
-            new_matches.append(match_record)
+            new_unmatched.append(unmatched_record)
 
-    # Rebuild unmatched dataframe from original data
-    new_unmatched = []
-    for fighter in unmatched_fighters:
-        unmatched_record = {
-            "Name": fighter["name"],
-            "Gender": fighter["gender"],
-            "Age": fighter["age"],
-            "Weight": f"{fighter['weight_min']}-{fighter['weight_max']}"
-            if fighter["weight_min"] != fighter["weight_max"]
-            else f">={fighter['weight_max']}",
-            "Club": fighter["club"],
-            "Trainer": fighter["trainer"],
-            "Record": fighter["record"],
-        }
-        new_unmatched.append(unmatched_record)
+        # Apply changes to session state
+        st.session_state["matches"] = pd.DataFrame(new_matches)
+        st.session_state["unmatched"] = pd.DataFrame(new_unmatched)
 
-    # Update session state
-    st.session_state["matches"] = pd.DataFrame(new_matches)
-    st.session_state["unmatched"] = pd.DataFrame(new_unmatched)
+        # Update registry with new match IDs (incremental updates)
+        for match_id, fighters in match_groups.items():
+            for fighter in fighters:
+                update_fighter_in_registry(
+                    fighter["name"], {"current_match_id": match_id, "status": "matched"}
+                )
 
-    # Update registry with new match IDs
-    for match_id, fighters in match_groups.items():
-        for fighter in fighters:
-            registry[fighter["name"]]["current_match_id"] = match_id
-            registry[fighter["name"]]["status"] = "matched"
+        for fighter in unmatched_fighters:
+            update_fighter_in_registry(
+                fighter["name"], {"current_match_id": 0, "status": "unmatched"}
+            )
 
-    for fighter in unmatched_fighters:
-        registry[fighter["name"]]["current_match_id"] = 0
-        registry[fighter["name"]]["status"] = "unmatched"
+        # Final validation of registry integrity
+        registry_issues = validate_fighter_registry()
+        if registry_issues:
+            raise ValueError(f"Registry integrity issues: {registry_issues}")
 
-    st.session_state["master_fighter_registry"] = registry
+        return True
 
-    return True
+    except Exception as e:
+        # Rollback on any error
+        st.session_state["matches"] = backup_matches
+        st.session_state["unmatched"] = backup_unmatched
+        st.session_state["master_fighter_registry"] = backup_registry
 
-    # Rebuild matches dataframe
-    new_matches = []
-    for match_id, fighters in match_groups.items():
-        if len(fighters) >= 2:
-            # Create match record for first two fighters
-            f1, f2 = fighters[0], fighters[1]
-
-            # Ensure weights are numeric
-            weight1 = pd.to_numeric(f1["Weight"], errors="coerce") or 0
-            weight2 = pd.to_numeric(f2["Weight"], errors="coerce") or 0
-
-            match_record = {
-                "Match_ID": match_id,
-                "Fighter_1": f1["Name"],
-                "Fighter_2": f2["Name"],
-                "Gender": f1["Gender"],
-                "Age_1": f1["Age"],
-                "Age_2": f2["Age"],
-                "Weight_1": weight1,
-                "Weight_2": weight2,
-                "Club_1": f1["Club"],
-                "Club_2": f2["Club"],
-                "Weight_Diff": abs(weight1 - weight2),
-            }
-            new_matches.append(match_record)
-
-    # Update session state
-    st.session_state["matches"] = pd.DataFrame(new_matches)
-
-    # Rebuild unmatched dataframe
-    new_unmatched = []
-    for fighter in unmatched_fighters:
-        unmatched_record = {
-            "Name": fighter["Name"],
-            "Gender": fighter["Gender"],
-            "Age": fighter["Age"],
-            "Weight": f"{fighter['Weight']}-{fighter['Weight']}",  # Simple range
-            "Club": fighter["Club"],
-            "Record": 0,  # Default
-        }
-        new_unmatched.append(unmatched_record)
-
-    st.session_state["unmatched"] = pd.DataFrame(new_unmatched)
+        st.error(f"❌ Update failed and was rolled back: {str(e)}")
+        st.info("💡 **Your previous pairings have been restored.**")
+        return False
 
 
 def display_pairing_summary():

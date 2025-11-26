@@ -1,103 +1,78 @@
 # utils/pairing.py - Core pairing logic
 
 import pandas as pd
-import re
 from typing import List, Tuple, Optional
 from dataclasses import dataclass
-
-# Constants
-WEIGHT_TOLERANCE = 0.5  # kg
-AGE_GAP_WARNING = 2  # years for Juniors
-WEIGHT_GAP_PERCENT_WARNING = 5  # %
-
-# Official Muay Thai Weight Categories (kg) - Adults and Juniors
-WEIGHT_CLASSES_ADULT = [
-    {"name": "First Flyweight", "min": 45.0, "max": 48.0},
-    {"name": "Flyweight", "min": 48.0, "max": 51.0},
-    {"name": "Bantamweight", "min": 51.0, "max": 54.0},
-    {"name": "Featherweight", "min": 54.0, "max": 57.0},
-    {"name": "Lightweight", "min": 57.0, "max": 60.0},
-    {"name": "Light Welterweight", "min": 60.0, "max": 63.5},
-    {"name": "Welterweight", "min": 63.5, "max": 67.0},
-    {"name": "Light Middleweight", "min": 67.0, "max": 71.0},
-    {"name": "Middleweight", "min": 71.0, "max": 75.0},
-    {"name": "Light Heavyweight", "min": 75.0, "max": 81.0},
-    {"name": "Cruiserweight", "min": 81.0, "max": 86.0},
-    {"name": "Heavyweight", "min": 86.0, "max": 91.0},
-    {"name": "Super Heavyweight", "min": 91.0, "max": 999.0},  # 91+
-]
+import re
+from .type_helpers import safe_int_conversion
 
 
-# Age-based pairing rules for youths
-def get_max_diff_12_15(weight):
-    """Max weight difference for 12-15 year olds (ages 12-15)."""
-    if weight <= 60:
+# Constants for class rankings and weight categories
+CLASS_ORDER = {
+    "A": 4,  # Highest class
+    "B": 3,
+    "C": 2,
+    "D": 1,  # Lowest class
+}
+
+WEIGHT_CATEGORIES = {
+    "adult": [
+        {"name": "Light Fly", "min": 0, "max": 51.5},
+        {"name": "Fly", "min": 51.5, "max": 54},
+        {"name": "Bantam", "min": 54, "max": 57},
+        {"name": "Feather", "min": 57, "max": 60},
+        {"name": "Light", "min": 60, "max": 63.5},
+        {"name": "Super Light", "min": 63.5, "max": 67},
+        {"name": "Welter", "min": 67, "max": 71},
+        {"name": "Super Welter", "min": 71, "max": 75},
+        {"name": "Middle", "min": 75, "max": 81},
+        {"name": "Super Middle", "min": 81, "max": 86},
+        {"name": "Light Heavy", "min": 86, "max": 91},
+        {"name": "Cruiser", "min": 91, "max": 100},
+        {"name": "Heavy", "min": 100, "max": 999},
+    ]
+}
+
+WEIGHT_CLASSES_ADULT = WEIGHT_CATEGORIES["adult"]
+
+
+@dataclass
+class ValidationResult:
+    """Enhanced validation result with detailed feedback."""
+
+    is_valid: bool
+    message: str
+    severity: str  # "info", "warning", "error"
+    suggested_fix: Optional[str] = None
+
+    def __str__(self) -> str:
+        """String representation for display."""
+        emoji = {"info": "ℹ️", "warning": "⚠️", "error": "❌"}.get(self.severity, "❓")
+
+        result = f"{emoji} {self.message}"
+        if self.suggested_fix:
+            result += f"\n💡 Suggested fix: {self.suggested_fix}"
+        return result
+
+
+def get_max_diff_12_15(avg_weight: float) -> float:
+    """Get maximum allowed weight difference for 12-15 age group."""
+    if avg_weight <= 40:
         return 2.0
-    if weight <= 70:
+    elif avg_weight <= 50:
         return 3.0
-    if weight <= 80:
+    else:
         return 4.0
-    return 5.0  # Over 80kg
 
 
-def get_max_diff_16_17(weight):
-    """Max weight difference for 16-17 year olds."""
-    if weight <= 54:
-        return 2.0
-    if weight <= 66:
+def get_max_diff_16_17(avg_weight: float) -> float:
+    """Get maximum allowed weight difference for 16-17 age group."""
+    if avg_weight <= 50:
         return 3.0
-    if weight <= 74:
+    elif avg_weight <= 60:
         return 4.0
-    if weight <= 79:
+    else:
         return 5.0
-    if weight <= 85:
-        return 6.0
-    return 7.0  # Over 85kg (more lenient for 16-17)
-
-
-# Legacy functions (deprecated but kept for compatibility)
-def get_max_diff_12_14(weight):
-    """Legacy function - use get_max_diff_12_15 instead."""
-    return get_max_diff_12_15(weight)
-
-
-def get_max_diff_15_16(weight):
-    """Legacy function - use get_max_diff_16_17 instead."""
-    return get_max_diff_16_17(weight)
-
-
-# Class level ordering (higher is more experienced)
-CLASS_ORDER = {"А": 4, "Б": 3, "В": 2, "С": 2, "Г": 1, "0 боев": 0}
-
-
-def safe_int_conversion(value) -> int:
-    """Safely convert various data types to integer, handling strings, bytes, floats, etc."""
-    if pd.isna(value) or value == "" or value is None:
-        return 0
-
-    try:
-        # Handle bytes objects (decode if needed)
-        if isinstance(value, bytes):
-            value = value.decode("utf-8", errors="ignore")
-
-        # Convert to string first to handle all cases
-        str_val = str(value).strip()
-
-        # Remove any non-numeric characters except decimal point
-        import re
-
-        numeric_str = re.sub(r"[^\d.]", "", str_val)
-
-        # If empty after cleaning, return 0
-        if not numeric_str:
-            return 0
-
-        # Convert to float first, then int (handles "5.0" -> 5)
-        return int(float(numeric_str))
-
-    except (ValueError, TypeError, AttributeError):
-        # If conversion fails, return 0
-        return 0
 
 
 def get_class_rank(class_level):
@@ -107,25 +82,6 @@ def get_class_rank(class_level):
     # Handle both string and numeric class levels
     class_str = str(class_level).strip().upper()
     return CLASS_ORDER.get(class_str, 0)
-
-
-# Age-based pairing rules for juniors
-JUNIOR_PAIRING_RULES = {
-    "12-14": {
-        (0, 60): 2.0,  # up to 60kg: 2kg difference
-        (60, 70): 3.0,  # 60-70kg: 3kg difference
-        (70, 80): 4.0,  # 70-80kg: 4kg difference
-        (80, float("inf")): 5.0,  # over 80kg: 5kg difference
-    },
-    "15-16": {
-        (0, 54): 2.0,  # up to 54kg: 2kg difference
-        (54, 66): 3.0,  # 54-66kg: 3kg difference
-        (66, 74): 4.0,  # 66-74kg: 4kg difference
-        (74, 79): 5.0,  # 74-79kg: 5kg difference
-        (79, 85): 6.0,  # 79-85kg: 6kg difference
-        (85, float("inf")): 7.0,  # over 85kg: 7kg difference (assuming)
-    },
-}
 
 
 @dataclass
@@ -317,6 +273,8 @@ def check_club_conflict(
                 and fighter1.club_name == fighter2.club_name
                 and fighter1.club_region is not None
                 and fighter1.club_name is not None
+                and fighter2.club_region is not None
+                and fighter2.club_name is not None
             )
 
         if conflict_level == 3:
@@ -324,6 +282,7 @@ def check_club_conflict(
             return (
                 fighter1.club_region == fighter2.club_region
                 and fighter1.club_region is not None
+                and fighter2.club_region is not None
             )
 
     return False  # Default: no conflict
@@ -365,43 +324,71 @@ def get_age_group(age: int) -> str:
 
 def parse_weight_range(weight_str: str) -> Tuple[float, float]:
     """Parse weight range string like '6-7' or 'до 22'."""
-    if not weight_str or pd.isna(weight_str):
-        return (0, 999)
+    if pd.isna(weight_str) or weight_str == "":
+        return (0, 999)  # Default wide range
 
-    weight_str = str(weight_str).strip().lower()
+    weight_str = str(weight_str).lower().strip()
 
-    # Handle ">= X" (greater than or equal to X)
-    if ">=" in weight_str:
-        try:
-            weight = float(re.search(r">=\s*(\d+(?:\.\d+)?)", weight_str).group(1))
-            return (weight, weight)  # Treat as exact weight
-        except:
-            pass
-
-    # Handle "до X" (up to X) - treat as ">= X"
+    # Russian "до" (under/up to)
     if "до" in weight_str:
         try:
-            weight = float(re.search(r"до\s*(\d+(?:\.\d+)?)", weight_str).group(1))
-            return (weight, weight)  # Treat as exact weight (same as >= X)
-        except:
+            max_weight = float(re.search(r"до\s*(\d+(?:\.\d+)?)", weight_str).group(1))
+            return (0, max_weight)
+        except (ValueError, AttributeError):
             pass
 
-    # Handle range "X-Y"
+    # Greater than or equal (>=)
+    if ">=" in weight_str or "≥" in weight_str:
+        try:
+            min_weight = float(
+                re.search(r"[≥>=]\s*(\d+(?:\.\d+)?)", weight_str).group(1)
+            )
+            return (min_weight, 999)
+        except (ValueError, AttributeError):
+            pass
+
+    # Less than or equal (<=)
+    if "<=" in weight_str or "≤" in weight_str:
+        try:
+            max_weight = float(
+                re.search(r"[≤<=]\s*(\d+(?:\.\d+)?)", weight_str).group(1)
+            )
+            return (0, max_weight)
+        except (ValueError, AttributeError):
+            pass
+
+    # Greater than (>)
+    if ">" in weight_str and ">=" not in weight_str:
+        try:
+            min_weight = float(re.search(r">\s*(\d+(?:\.\d+)?)", weight_str).group(1))
+            return (min_weight + 0.1, 999)  # Slightly above to avoid equality
+        except (ValueError, AttributeError):
+            pass
+
+    # Less than (<)
+    if "<" in weight_str and "<=" not in weight_str:
+        try:
+            max_weight = float(re.search(r"<\s*(\d+(?:\.\d+)?)", weight_str).group(1))
+            return (0, max_weight - 0.1)  # Slightly below to avoid equality
+        except (ValueError, AttributeError):
+            pass
+
+    # Range X-Y
     range_match = re.search(r"(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)", weight_str)
     if range_match:
         try:
-            min_w = float(range_match.group(1))
-            max_w = float(range_match.group(2))
-            return (min_w, max_w)
-        except:
+            min_weight = float(range_match.group(1))
+            max_weight = float(range_match.group(2))
+            return (min_weight, max_weight)
+        except (ValueError, TypeError):
             pass
 
     # Single weight
     try:
         weight = float(weight_str)
         return (weight, weight)
-    except:
-        return (0, 999)
+    except (ValueError, TypeError):
+        return (0, 999)  # Fallback
 
 
 def get_weight_category(weight: float) -> str:
@@ -456,53 +443,72 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
     return fighters
 
 
-def is_valid_pair(f1: Fighter, f2: Fighter) -> tuple[bool, str]:
-    """Check if two fighters can be paired based on official rules."""
+def is_valid_pair(f1: Fighter, f2: Fighter) -> ValidationResult:
+    """Check if two fighters can be paired based on official rules with detailed feedback."""
     # Basic safety checks
     if f1.gender != f2.gender:
-        return False, "Gender mismatch"
-
-    # Age division check (strict division boundaries)
-    if get_age_division(f1.age) != get_age_division(f2.age):
-        return (
-            False,
-            f"Different age divisions: {get_age_division(f1.age)} vs {get_age_division(f2.age)}",
+        return ValidationResult(
+            is_valid=False,
+            message=f"Gender mismatch: {f1.name} ({f1.gender}) vs {f2.name} ({f2.gender})",
+            severity="error",
+            suggested_fix="Pair fighters of the same gender only",
         )
 
-    # Different club (handled separately via check_club_conflict)
+    # Age division check (strict division boundaries)
+    f1_age_div = get_age_division(f1.age)
+    f2_age_div = get_age_division(f2.age)
+    if f1_age_div != f2_age_div:
+        return ValidationResult(
+            is_valid=False,
+            message=f"Different age divisions: {f1.name} ({f1_age_div}) vs {f2.name} ({f2_age_div})",
+            severity="error",
+            suggested_fix="Pair fighters from the same age division only",
+        )
 
     # Different trainer (optional, can be disabled)
     if f1.trainer and f2.trainer and f1.trainer == f2.trainer:
-        return False, "Same trainer"
+        return ValidationResult(
+            is_valid=False,
+            message=f"Same trainer conflict: Both {f1.name} and {f2.name} train with '{f1.trainer}'",
+            severity="warning",
+            suggested_fix="Consider pairing with different trainers for fair competition",
+        )
 
     avg_weight = (f1.weight_min + f2.weight_min) / 2
     weight_diff = abs(f1.weight_min - f2.weight_min)
 
     # Youths 12-15 (ages 12-13 and 14-15 divisions)
-    if get_age_division(f1.age) in ["12-13", "14-15"] and get_age_division(f2.age) in [
-        "12-13",
-        "14-15",
-    ]:
+    if f1_age_div in ["12-13", "14-15"] and f2_age_div in ["12-13", "14-15"]:
         max_allowed = get_max_diff_12_15(avg_weight)
         if weight_diff <= max_allowed:
-            return True, f"Valid youth match ({get_age_division(f1.age)})"
+            return ValidationResult(
+                is_valid=True,
+                message=f"✅ Valid youth match ({f1_age_div}): weight diff {weight_diff:.1f}kg ≤ {max_allowed}kg",
+                severity="info",
+            )
         else:
-            return (
-                False,
-                f"Weight diff {weight_diff}kg exceeds youth limit {max_allowed}kg",
+            return ValidationResult(
+                is_valid=False,
+                message=f"Weight difference {weight_diff:.1f}kg exceeds youth limit {max_allowed}kg for {f1_age_div}",
+                severity="error",
+                suggested_fix=f"Find a {f1.name} opponent within {max_allowed}kg weight difference",
             )
 
     # Older Youths 16-17
-    elif get_age_division(f1.age) in ["16-17"] and get_age_division(f2.age) in [
-        "16-17"
-    ]:
+    elif f1_age_div in ["16-17"] and f2_age_div in ["16-17"]:
         max_allowed = get_max_diff_16_17(avg_weight)
         if weight_diff <= max_allowed:
-            return True, "Valid older youth match (16-17)"
+            return ValidationResult(
+                is_valid=True,
+                message=f"✅ Valid older youth match (16-17): weight diff {weight_diff:.1f}kg ≤ {max_allowed}kg",
+                severity="info",
+            )
         else:
-            return (
-                False,
-                f"Weight diff {weight_diff}kg exceeds older youth limit {max_allowed}kg",
+            return ValidationResult(
+                is_valid=False,
+                message=f"Weight difference {weight_diff:.1f}kg exceeds older youth limit {max_allowed}kg",
+                severity="error",
+                suggested_fix=f"Find a {f1.name} opponent within {max_allowed}kg weight difference",
             )
 
     # Adults (18+) - OR youth with undefined categories
@@ -514,29 +520,38 @@ def is_valid_pair(f1: Fighter, f2: Fighter) -> tuple[bool, str]:
         # If both have valid categories, require exact match (adult rules)
         if cat1 and cat2:
             if cat1 == cat2:
-                return True, f"Match in {cat1}"
+                return ValidationResult(
+                    is_valid=True,
+                    message=f"✅ Adult match in {cat1} category",
+                    severity="info",
+                )
             else:
-                return False, f"Different categories: {cat1} vs {cat2}"
+                return ValidationResult(
+                    is_valid=False,
+                    message=f"Different weight categories: {f1.name} ({cat1}) vs {f2.name} ({cat2})",
+                    severity="error",
+                    suggested_fix=f"Pair {f1.name} with another fighter in {cat1} category",
+                )
 
         # If either has undefined category (youth or light weights), use floating rules
         else:
             # Use youth floating weight rules for undefined categories
-            avg_weight = (f1.weight_min + f2.weight_min) / 2
-            weight_diff = abs(f1.weight_min - f2.weight_min)
-
-            # Apply youth weight difference limits
             max_allowed = get_max_diff_12_15(
                 avg_weight
             )  # Use 12-15 rules as default for youth
             if weight_diff <= max_allowed:
-                return (
-                    True,
-                    f"Youth match (weight diff: {weight_diff:.1f}kg ≤ {max_allowed}kg)",
+                return ValidationResult(
+                    is_valid=True,
+                    message=f"✅ Youth match (undefined category): weight diff {weight_diff:.1f}kg ≤ {max_allowed}kg",
+                    severity="info",
+                    suggested_fix="Consider verifying weight categories for future tournaments",
                 )
             else:
-                return (
-                    False,
-                    f"Youth weight diff {weight_diff:.1f}kg exceeds limit {max_allowed}kg",
+                return ValidationResult(
+                    is_valid=False,
+                    message=f"Youth weight difference {weight_diff:.1f}kg exceeds limit {max_allowed}kg",
+                    severity="error",
+                    suggested_fix=f"Find a {f1.name} opponent within {max_allowed}kg weight difference",
                 )
 
 
@@ -739,9 +754,9 @@ def pair_fighters(
                 continue
 
             # Check if valid match
-            is_valid, reason = is_valid_pair(current_fighter, opponent)
+            validation = is_valid_pair(current_fighter, opponent)
 
-            if is_valid:
+            if validation.is_valid:
                 score = calculate_pair_score(current_fighter, opponent)
                 if score < best_score:
                     best_opponent = opponent
@@ -775,7 +790,8 @@ def pair_fighters(
                 ),
                 "Age_Diff": abs(current_fighter.age - best_opponent.age),
                 "Gender": current_fighter.gender,
-                "Weight_Class": reason,  # Category or match type
+                "Weight_Class": current_fighter.weight_class
+                or get_weight_category(current_fighter.weight_min),
             }
             matches.append(match)
             # Remove opponent from the pool

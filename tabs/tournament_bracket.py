@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from utils.translations import translations
-import random
 
 
 def t(key, default=None):
@@ -134,9 +133,9 @@ def display_bracket_round(bracket: "TournamentBracket", round_num: int):
                 col1, col2 = st.columns(2)
                 with col1:
                     fighter_style = (
-                        f"color: var(--accent-danger); font-weight: bold;"
+                        "color: var(--accent-danger); font-weight: bold;"
                         if current_winner == fighter1
-                        else f"color: var(--text-secondary);"
+                        else "color: var(--text-secondary);"
                     )
                     border_color = (
                         "var(--accent-success)"
@@ -144,7 +143,7 @@ def display_bracket_round(bracket: "TournamentBracket", round_num: int):
                         else "var(--border-color)"
                     )
                     winner_badge = (
-                        f'<div style="color: var(--accent-success); font-weight: bold; margin-top: 5px;">🏆 WINNER</div>'
+                        '<div style="color: var(--accent-success); font-weight: bold; margin-top: 5px;">🏆 WINNER</div>'
                         if current_winner == fighter1
                         else ""
                     )
@@ -160,9 +159,9 @@ def display_bracket_round(bracket: "TournamentBracket", round_num: int):
 
                 with col2:
                     fighter_style = (
-                        f"color: var(--accent-primary); font-weight: bold;"
+                        "color: var(--accent-primary); font-weight: bold;"
                         if current_winner == fighter2
-                        else f"color: var(--text-secondary);"
+                        else "color: var(--text-secondary);"
                     )
                     border_color = (
                         "var(--accent-success)"
@@ -170,7 +169,7 @@ def display_bracket_round(bracket: "TournamentBracket", round_num: int):
                         else "var(--border-color)"
                     )
                     winner_badge = (
-                        f'<div style="color: var(--accent-success); font-weight: bold; margin-top: 5px;">🏆 WINNER</div>'
+                        '<div style="color: var(--accent-success); font-weight: bold; margin-top: 5px;">🏆 WINNER</div>'
                         if current_winner == fighter2
                         else ""
                     )
@@ -200,7 +199,7 @@ def display_bracket_round(bracket: "TournamentBracket", round_num: int):
                     )
 
                     if st.button(
-                        f"Confirm Winner",
+                        "Confirm Winner",
                         key=f"confirm_{round_num}_{i}",
                         type="primary",
                     ):
@@ -828,7 +827,7 @@ def render_tournament_bracket_tab():
                                 label_visibility="collapsed",
                             )
 
-                            if st.button(f"Record Result", key=f"record_{match_idx}"):
+                            if st.button("Record Result", key=f"record_{match_idx}"):
                                 tournament.record_result(match_idx, winner)
                                 st.rerun()
                 else:

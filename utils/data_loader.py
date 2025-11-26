@@ -21,6 +21,38 @@ def parse_weight_category(text: str) -> Tuple[float, float]:
         except Exception:
             pass
 
+    # Greater than or equal (>=)
+    if ">=" in text or "≥" in text:
+        try:
+            min_weight = float(re.search(r"[≥>=]\s*(\d+(?:\.\d+)?)", text).group(1))
+            return (min_weight, 999)
+        except Exception:
+            pass
+
+    # Less than or equal (<=)
+    if "<=" in text or "≤" in text:
+        try:
+            max_weight = float(re.search(r"[≤<=]\s*(\d+(?:\.\d+)?)", text).group(1))
+            return (0, max_weight)
+        except Exception:
+            pass
+
+    # Greater than (>)
+    if ">" in text and ">=" not in text:
+        try:
+            min_weight = float(re.search(r">\s*(\d+(?:\.\d+)?)", text).group(1))
+            return (min_weight + 0.1, 999)  # Slightly above to avoid equality
+        except Exception:
+            pass
+
+    # Less than (<)
+    if "<" in text and "<=" not in text:
+        try:
+            max_weight = float(re.search(r"<\s*(\d+(?:\.\d+)?)", text).group(1))
+            return (0, max_weight - 0.1)  # Slightly below to avoid equality
+        except Exception:
+            pass
+
     # Range X-Y
     range_match = re.search(r"(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)", text)
     if range_match:
