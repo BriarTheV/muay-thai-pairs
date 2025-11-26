@@ -57,6 +57,29 @@ def normalize_gender(gender: str) -> str:
     return gender_str
 
 
+def normalize_class(class_value: str) -> str:
+    """Normalize class values to English standard (A/B/C/D/empty)."""
+    if not class_value or pd.isna(class_value):
+        return ""
+
+    class_str = str(class_value).strip()
+
+    # Russian to English mapping
+    if class_str == "А":
+        return "A"
+    elif class_str == "Б":
+        return "B"
+    elif class_str == "С":
+        return "C"
+    elif class_str == "Д":
+        return "D"
+    elif class_str in ["0 боев", "0 fights", "no class"]:
+        return ""  # No class
+
+    # Already English or unknown - return as-is
+    return class_str
+
+
 @dataclass
 class ValidationResult:
     """Enhanced validation result with detailed feedback."""
@@ -456,7 +479,7 @@ def create_fighters(df: pd.DataFrame) -> List[Fighter]:
             record=record,
             total_fights=total_fights,
             weight_class=weight_class,
-            class_level=row.get("Class"),
+            class_level=normalize_class(row.get("Class")),
             dob=str(row.get("DOB")) if pd.notna(row.get("DOB")) else None,
             club_region=club_parsed["region"],
             club_name=club_parsed["club"],

@@ -149,6 +149,35 @@ def test_is_valid_pair():
     assert not is_valid_pair(f1, f4).is_valid  # Same club
 
 
+def test_normalize_class():
+    """Test class value normalization from Russian to English."""
+    from utils.pairing import normalize_class
+
+    # Russian to English mapping
+    assert normalize_class("А") == "A"
+    assert normalize_class("Б") == "B"
+    assert normalize_class("С") == "C"
+    assert normalize_class("Д") == "D"
+
+    # Special cases
+    assert normalize_class("0 боев") == ""  # No class
+    assert normalize_class("0 fights") == ""  # Alternative
+    assert normalize_class("no class") == ""  # Alternative
+
+    # Already English (should pass through)
+    assert normalize_class("A") == "A"
+    assert normalize_class("B") == "B"
+    assert normalize_class("C") == "C"
+    assert normalize_class("D") == "D"
+
+    # Empty/None values
+    assert normalize_class("") == ""
+    assert normalize_class(None) == ""
+
+    # Unknown values (should pass through)
+    assert normalize_class("X") == "X"
+
+
 def test_would_orphan_fighter():
     """Test the orphaning detection function."""
     from utils.pairing import would_orphan_fighter
